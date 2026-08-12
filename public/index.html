@@ -15,11 +15,12 @@
 
     <title>SHTM — Say Hello To Me</title>
 
-    <link
-        rel="stylesheet"
-        href="/style.css"
-    >
-</head>
+        <link
+            rel="stylesheet"
+            href="/style.css"
+        >
+
+    </head>
 
 <body>
 
@@ -102,10 +103,24 @@
                 </div>
 
 
-                <div
-                    id="timer"
-                    class="timer hidden"
-                >
+                <div class="header-right">
+
+                    <button
+                        id="langToggle"
+                        type="button"
+                        class="lang-toggle"
+                        aria-label="Dil değiştir"
+                        title="Dil değiştir / Change language"
+                    >
+                        TR
+                    </button>
+
+                    <div
+                        id="timer"
+                        class="timer hidden"
+                    >
+                    </div>
+
                 </div>
 
             </header>
@@ -318,6 +333,8 @@
          ===================================================== -->
 
     <script src="/socket.io/socket.io.js"></script>
+
+    <script src="/lang.js"></script>
 
     <script src="/app.js"></script>
 

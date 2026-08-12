@@ -1,3 +1,12 @@
+/*
+|==============================================================================
+| SHTM — CLIENT APPLICATION
+|==============================================================================
+| Socket.IO client, UI rendering, event handling.
+| Uses t() / t.key() from lang.js for i18n.
+|==============================================================================
+*/
+
 const socket = io({
     transports: ["websocket"]
 });
@@ -8,6 +17,9 @@ const chat =
 
 const status =
     document.getElementById("status");
+
+const statusText =
+    document.getElementById("statusText");
 
 const timer =
     document.getElementById("timer");
@@ -50,6 +62,12 @@ const reportModal =
 const reportInput =
     document.getElementById("reportInput");
 
+const reportTitle =
+    reportModal.querySelector("h2");
+
+const reportDesc =
+    reportModal.querySelector(".modal-description");
+
 const closeReport =
     document.getElementById("closeReport");
 
@@ -58,6 +76,18 @@ const cancelReport =
 
 const submitReport =
     document.getElementById("submitReport");
+
+
+const langToggle =
+    document.getElementById("langToggle");
+
+
+const footer =
+    document.querySelector("footer");
+
+
+const msgInput =
+    document.getElementById("messageInput");
 
 
 let inChat = false;
@@ -113,7 +143,7 @@ function setStatus(
     text,
     type = ""
 ) {
-    status.textContent = text;
+    statusText.textContent = text;
 
     status.className =
         "status";
@@ -163,6 +193,7 @@ function clearTimer() {
     }
 
     timer.textContent = "";
+    timer.classList.add("hidden");
 }
 
 
@@ -171,6 +202,8 @@ function startTimer(
     duration
 ) {
     clearTimer();
+
+    timer.classList.remove("hidden");
 
     const endTime =
         startedAt + duration;
@@ -255,7 +288,7 @@ function sendMessage() {
         2000
     ) {
         addMessage(
-            "Biraz yavaş :)"
+            t.key("slow_down")
         );
 
         return;
@@ -292,7 +325,7 @@ function sendImage(file) {
 
     if (file.size > MAX_SIZE) {
         addMessage(
-            "Image must be 5 MB or smaller."
+            t("Image must be 5 MB or smaller.")
         );
 
         return;
@@ -303,7 +336,7 @@ function sendImage(file) {
         2000
     ) {
         addMessage(
-            "Biraz yavaş :)"
+            t.key("slow_down")
         );
 
         return;
@@ -338,7 +371,8 @@ function sendImage(file) {
 
         imgElement.src = base64;
 
-        imgElement.alt = "Görsel";
+        imgElement.alt =
+            t.key("image_alt");
 
         imgElement.classList.add(
             "message-image"
@@ -372,6 +406,7 @@ function sendImage(file) {
     reader.readAsDataURL(file);
 }
 
+
 function openReport() {
     reportModal.classList.remove(
         "hidden"
@@ -391,14 +426,139 @@ function closeReportModal() {
 
 
 /*
-    CONNECTION
+|--------------------------------------------------------------------------
+| LANGUAGE TOGGLE
+|--------------------------------------------------------------------------
+*/
+
+function updateUITexts() {
+    const lang = t.lang();
+
+    // Timer is just numbers — no update needed
+
+    // Buttons
+    langToggle.textContent =
+        lang === "tr" ? "TR" : "EN";
+
+    langToggle.title =
+        lang === "tr"
+            ? "Dil değiştir / Change language"
+            : "Change language / Dil değiştir";
+
+    langToggle.setAttribute(
+        "aria-label",
+        lang === "tr"
+            ? "Dil değiştir"
+            : "Change language"
+    );
+
+    sendButton.setAttribute(
+        "aria-label",
+        t.key("send_message")
+    );
+
+    imageButton.setAttribute(
+        "aria-label",
+        t.key("upload_image")
+    );
+
+    imageButton.setAttribute(
+        "title",
+        t.key("upload_image")
+    );
+
+    skipButton.textContent =
+        t.key("skip");
+
+    endButton.textContent =
+        t.key("end");
+
+    reportButton.textContent =
+        t.key("report");
+
+    findAgainButton.textContent =
+        t.key("find_again");
+
+    // Input placeholder
+    msgInput.setAttribute(
+        "placeholder",
+        t.key("say_something")
+    );
+
+    // Footer
+    footer.textContent =
+        t.key("footer");
+
+    // Report modal
+    reportTitle.textContent =
+        t.key("report_title");
+
+    reportDesc.textContent =
+        t.key("report_desc");
+
+    reportInput.setAttribute(
+        "placeholder",
+        t.key("report_placeholder")
+    );
+
+    cancelReport.textContent =
+        t.key("cancel");
+
+    submitReport.textContent =
+        t.key("submit");
+
+    closeReport.setAttribute(
+        "aria-label",
+        t.key("close")
+    );
+
+    // Status — trigger the right event to get status text
+    // (matches the event logic below)
+}
+
+langToggle.addEventListener(
+    "click",
+    () => {
+        const next =
+            t.lang() === "tr"
+                ? "en"
+                : "tr";
+
+        setLang(next);
+    }
+);
+
+window.addEventListener(
+    "langChange",
+    () => {
+        updateUITexts();
+
+        // Re-translate the current status if it's a search status
+        if (
+            status.classList.contains(
+                "searching"
+            )
+        ) {
+            setStatus(
+                t.key("searching_status"),
+                "searching"
+            );
+        }
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| CONNECTION
+|--------------------------------------------------------------------------
 */
 
 socket.on(
     "connect",
     () => {
         setStatus(
-            "Bağlandı",
+            t.key("connected"),
             "active"
         );
     }
@@ -415,18 +575,20 @@ socket.on(
         typing.textContent = "";
 
         setStatus(
-            "Bağlantı kesildi"
+            t.key("disconnected")
         );
 
         addMessage(
-            "Bağlantı koptu. Yeniden bağlanmayı deniyorum..."
+            t.key("connection_lost")
         );
     }
 );
 
 
 /*
-    MATCHMAKING
+|--------------------------------------------------------------------------
+| MATCHMAKING
+|--------------------------------------------------------------------------
 */
 
 socket.on(
@@ -441,12 +603,12 @@ socket.on(
         );
 
         setStatus(
-            data.message,
+            t(data.message),
             "searching"
         );
 
         addMessage(
-            data.message
+            t(data.message)
         );
     }
 );
@@ -462,13 +624,13 @@ socket.on(
         );
 
         setStatus(
-            "Bir yabancı bulundu.",
+            t.key("stranger_found"),
             "active"
         );
 
         addMessage(
-            "Sistem: " +
-            data.message
+            t.key("system_prefix") +
+            t(data.message)
         );
 
         startTimer(
@@ -480,7 +642,9 @@ socket.on(
 
 
 /*
-    MESSAGES
+|--------------------------------------------------------------------------
+| MESSAGES
+|--------------------------------------------------------------------------
 */
 
 socket.on(
@@ -513,7 +677,8 @@ socket.on(
         imgElement.src =
             data.image;
 
-        imgElement.alt = "Görsel";
+        imgElement.alt =
+            t.key("image_alt");
 
         imgElement.classList.add(
             "message-image"
@@ -550,15 +715,17 @@ socket.on(
     "messageError",
     data => {
         addMessage(
-            "Sistem: " +
-            data.message
+            t.key("system_prefix") +
+            t(data.message)
         );
     }
 );
 
 
 /*
-    TYPING
+|--------------------------------------------------------------------------
+| TYPING
+|--------------------------------------------------------------------------
 */
 
 socket.on(
@@ -566,7 +733,7 @@ socket.on(
     data => {
         typing.textContent =
             data.active
-                ? "Yabancı yazıyor..."
+                ? t.key("stranger_typing")
                 : "";
     }
 );
@@ -622,7 +789,9 @@ input.addEventListener(
 
 
 /*
-    SUBMIT
+|--------------------------------------------------------------------------
+| SUBMIT
+|--------------------------------------------------------------------------
 */
 
 composer.addEventListener(
@@ -636,7 +805,9 @@ composer.addEventListener(
 
 
 /*
-    SKIP
+|--------------------------------------------------------------------------
+| SKIP
+|--------------------------------------------------------------------------
 */
 
 skipButton.addEventListener(
@@ -659,18 +830,20 @@ socket.on(
         clearTimer();
 
         setStatus(
-            data.message
+            t(data.message)
         );
 
         addMessage(
-            data.message
+            t(data.message)
         );
     }
 );
 
 
 /*
-    END CHAT
+|--------------------------------------------------------------------------
+| END CHAT
+|--------------------------------------------------------------------------
 */
 
 endButton.addEventListener(
@@ -697,18 +870,20 @@ socket.on(
         typing.textContent = "";
 
         setStatus(
-            data.message
+            t(data.message)
         );
 
         addMessage(
-            data.message
+            t(data.message)
         );
     }
 );
 
 
 /*
-    PARTNER LEFT
+|--------------------------------------------------------------------------
+| PARTNER LEFT
+|--------------------------------------------------------------------------
 */
 
 socket.on(
@@ -721,18 +896,20 @@ socket.on(
         typing.textContent = "";
 
         setStatus(
-            "Yabancı ayrıldı."
+            t.key("stranger_left")
         );
 
         addMessage(
-            data.message
+            t(data.message)
         );
     }
 );
 
 
 /*
-    NEW MATCH
+|--------------------------------------------------------------------------
+| NEW MATCH
+|--------------------------------------------------------------------------
 */
 
 socket.on(
@@ -747,7 +924,7 @@ socket.on(
         );
 
         setStatus(
-            "Yeni bir yabancı bulabilirsin."
+            t.key("find_new")
         );
     }
 );
@@ -763,7 +940,7 @@ findAgainButton.addEventListener(
         );
 
         setStatus(
-            "Yeni bir yabancı aranıyor...",
+            t.key("searching_new"),
             "searching"
         );
 
@@ -775,7 +952,9 @@ findAgainButton.addEventListener(
 
 
 /*
-    REPORT
+|--------------------------------------------------------------------------
+| REPORT
+|--------------------------------------------------------------------------
 */
 
 reportButton.addEventListener(
@@ -822,8 +1001,8 @@ socket.on(
     "reportSent",
     data => {
         addMessage(
-            "Sistem: " +
-            data.message
+            t.key("system_prefix") +
+            t(data.message)
         );
     }
 );
@@ -833,8 +1012,18 @@ socket.on(
     "reportError",
     data => {
         addMessage(
-            "Sistem: " +
-            data.message
+            t.key("system_prefix") +
+            t(data.message)
         );
     }
 );
+
+
+/*
+|--------------------------------------------------------------------------
+| INIT
+|--------------------------------------------------------------------------
+*/
+
+// Apply initial translations after DOM is ready
+updateUITexts();

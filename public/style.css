@@ -380,6 +380,14 @@ textarea:focus-visible {
         var(--line);
 }
 
+.header-right {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
 .brand {
     display: flex;
 
@@ -408,6 +416,51 @@ textarea:focus-visible {
     letter-spacing: 0.02em;
 }
 
+
+/* =========================================================
+   LANGUAGE TOGGLE
+   ========================================================= */
+
+.lang-toggle {
+    min-width: 44px;
+
+    padding:
+        7px 10px;
+
+    background: var(--card-soft);
+
+    color: var(--ink);
+
+    border:
+        1.5px solid
+        var(--line);
+
+    border-radius: 999px;
+
+    font-size: 10px;
+
+    font-weight: 900;
+
+    letter-spacing: 0.04em;
+
+    cursor: pointer;
+
+    transition:
+        background 0.12s ease,
+        transform 0.08s ease;
+}
+
+.lang-toggle:hover {
+    background: #e8e1d6;
+}
+
+.lang-toggle:active {
+    transform:
+        translate(
+            1px,
+            1px
+        );
+}
 
 /* =========================================================
    TIMER
