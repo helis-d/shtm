@@ -3,6 +3,7 @@ const http = require("http");
 const crypto = require("crypto");
 const path = require("path");
 const { Server } = require("socket.io");
+const sec = require("./security");
 
 const app = express();
 
@@ -16,12 +17,62 @@ const io = new Server(httpServer, {
     allowEIO3: true
 });
 
-const CHAT_DURATION = 60_000;
-const MESSAGE_COOLDOWN = 2_000;
-const MAX_MESSAGE_LENGTH = 500;
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const CHAT_DURATION = sec.CHAT_DURATION;
+const MESSAGE_COOLDOWN = sec.MESSAGE_COOLDOWN_MS;
+const MAX_MESSAGE_LENGTH = sec.MAX_MESSAGE_LENGTH;
+const MAX_IMAGE_SIZE = sec.MAX_IMAGE_SIZE;
 
 let waitingUser = null;
+
+/*
+|--------------------------------------------------------------------------
+| SECURITY HEADERS
+|--------------------------------------------------------------------------
+*/
+
+app.use((req, res, next) => {
+    res.setHeader(
+        "Content-Security-Policy",
+        [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "connect-src 'self' wss: ws:",
+            "media-src 'none'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'"
+        ].join("; ")
+    );
+
+    res.setHeader(
+        "X-Content-Type-Options",
+        "nosniff"
+    );
+
+    res.setHeader(
+        "Referrer-Policy",
+        "strict-origin-when-cross-origin"
+    );
+
+    res.setHeader(
+        "Permissions-Policy",
+        "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    );
+
+    res.setHeader(
+        "X-Frame-Options",
+        "SAMEORIGIN"
+    );
+
+    res.setHeader(
+        "X-DNS-Prefetch-Control",
+        "off"
+    );
+
+    next();
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -37,6 +88,29 @@ const publicPath = path.join(
 
 app.use(
     express.static(publicPath)
+);
+
+/*
+   Serve Vercel Speed Insights MJS for vanilla JS import
+*/
+
+app.get(
+    "/speed-insights.mjs",
+    (req, res) => {
+        res.type("text/javascript");
+
+        res.sendFile(
+            path.join(
+                __dirname,
+                "..",
+                "node_modules",
+                "@vercel",
+                "speed-insights",
+                "dist",
+                "index.mjs"
+            )
+        );
+    }
 );
 
 app.get("/", (req, res) => {
@@ -105,28 +179,6 @@ function getPartner(socket) {
         ) || null;
 }
 
-function sanitizeMessage(value) {
-    if (
-        typeof value !== "string"
-    ) {
-        return null;
-    }
-
-    const message = value
-        .replace(/\u0000/g, "")
-        .trim();
-
-    if (
-        !message ||
-        message.length >
-            MAX_MESSAGE_LENGTH
-    ) {
-        return null;
-    }
-
-    return message;
-}
-
 /*
 |--------------------------------------------------------------------------
 | MATCHMAKING
@@ -138,6 +190,27 @@ function queueUser(socket) {
         !isConnected(socket) ||
         socket.roomId
     ) {
+        return;
+    }
+
+    // Rate limit: matchmaking attempts
+    const matchmakingCheck =
+        sec.checkMatchmakingRate(socket.id);
+
+    sec.incrementMetric("matchmakingAttempts");
+
+    if (!matchmakingCheck.allowed) {
+        sec.incrementMetric("rateLimitViolations");
+
+        send(
+            socket,
+            "messageError",
+            {
+                message:
+                    matchmakingCheck.message
+            }
+        );
+
         return;
     }
 
@@ -288,6 +361,43 @@ function finishRoom(
 io.on(
     "connection",
     socket => {
+        /*
+        |------------------------------------------------------------------
+        | CONNECTION RATE LIMITING
+        |------------------------------------------------------------------
+        */
+
+        const connectionCheck =
+            sec.checkConnectionRate(socket);
+
+        sec.incrementMetric("connections");
+        sec.incrementMetric("activeSessions");
+
+        if (!connectionCheck.allowed) {
+            sec.incrementMetric("rejectedConnections");
+            sec.incrementMetric("rateLimitViolations");
+
+            console.log(
+                "SECURITY: Connection rejected",
+                {
+                    ip: sec.getClientIP(socket),
+                    socketId: socket.id
+                }
+            );
+
+            socket.emit(
+                "messageError",
+                {
+                    message:
+                        connectionCheck.message
+                }
+            );
+
+            socket.disconnect(true);
+
+            return;
+        }
+
         console.log(
             "Connected:",
             socket.id
@@ -305,9 +415,9 @@ io.on(
         queueUser(socket);
 
         /*
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         | IMAGE
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         */
 
         socket.on(
@@ -319,89 +429,69 @@ io.on(
                     return;
                 }
 
-                const image =
-                    typeof data?.image ===
-                    "string"
-                        ? data.image.trim()
-                        : "";
+                // Rate limit: image uploads
+                const imageRateCheck =
+                    sec.checkImageUploadRate(
+                        socket.id
+                    );
 
-                if (!image) {
+                if (!imageRateCheck.allowed) {
+                    sec.incrementMetric("rateLimitViolations");
+
                     send(
                         socket,
                         "messageError",
                         {
                             message:
-                                "Görsel gönderilemedi."
+                                imageRateCheck.message
                         }
                     );
 
                     return;
                 }
 
-                const prefix =
-                    "data:";
-
+                // Payload size guard
                 if (
-                    !image.startsWith(
-                        prefix
+                    !sec.checkPayloadSize(
+                        data
                     )
                 ) {
+                    sec.incrementMetric("rejectedMessages");
+
                     send(
                         socket,
                         "messageError",
                         {
                             message:
-                                "Geçersiz görsel formatı."
+                                "Görsel çok büyük."
                         }
                     );
 
                     return;
                 }
 
-                const base64 =
-                    image.includes(
-                        "base64,"
-                    )
-                        ? image.split(
-                              "base64,"
-                          )[1]
-                        : "";
+                // Validate image (MIME + magic bytes + size)
+                const validation =
+                    sec.validateImagePayload(
+                        data?.image
+                    );
 
-                if (!base64) {
+                if (!validation.valid) {
+                    sec.incrementMetric("rejectedMessages");
+
                     send(
                         socket,
                         "messageError",
                         {
                             message:
-                                "Geçersiz görsel verisi."
+                                validation.message
                         }
                     );
 
                     return;
                 }
 
-                const byteLength =
-                    Buffer.byteLength(
-                        base64,
-                        "base64"
-                    );
-
-                if (
-                    byteLength >
-                    MAX_IMAGE_SIZE
-                ) {
-                    send(
-                        socket,
-                        "messageError",
-                        {
-                            message:
-                                "Görsel 5 MB veya daha küçük olmalı."
-                        }
-                    );
-
-                    return;
-                }
-
+                // Cooldown check
                 const now =
                     Date.now();
 
@@ -424,6 +514,8 @@ io.on(
 
                 socket.lastMessageAt =
                     now;
+
+                sec.incrementMetric("imageUploads");
 
                 socket.typing = false;
 
@@ -441,7 +533,7 @@ io.on(
                     .emit(
                         "image",
                         {
-                            image,
+                            image: data.image,
                             timestamp:
                                 now
                         }
@@ -450,9 +542,9 @@ io.on(
         );
 
         /*
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         | MESSAGE
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         */
 
         socket.on(
@@ -464,8 +556,29 @@ io.on(
                     return;
                 }
 
+                // Payload size guard
+                if (
+                    !sec.checkPayloadSize(
+                        data,
+                        64 * 1024
+                    )
+                ) {
+                    sec.incrementMetric("rejectedMessages");
+
+                    send(
+                        socket,
+                        "messageError",
+                        {
+                            message:
+                                "Mesaj çok büyük."
+                        }
+                    );
+
+                    return;
+                }
+
                 const message =
-                    sanitizeMessage(
+                    sec.sanitizeMessage(
                         data?.message
                     );
 
@@ -482,28 +595,28 @@ io.on(
                     return;
                 }
 
-                const now =
-                    Date.now();
+                // Burst + cooldown rate limiting
+                const rateCheck =
+                    sec.checkMessageRate(
+                        socket.id
+                    );
 
-                if (
-                    now -
-                    socket.lastMessageAt <
-                    MESSAGE_COOLDOWN
-                ) {
+                if (!rateCheck.allowed) {
+                    sec.incrementMetric("rateLimitViolations");
+
                     send(
                         socket,
                         "messageError",
                         {
                             message:
-                                "Biraz yavaş."
+                                rateCheck.message
                         }
                     );
 
                     return;
                 }
 
-                socket.lastMessageAt =
-                    now;
+                sec.incrementMetric("messages");
 
                 socket.typing = false;
 
@@ -523,16 +636,16 @@ io.on(
                         {
                             message,
                             timestamp:
-                                now
+                                Date.now()
                         }
                     );
             }
         );
 
         /*
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         | TYPING
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         */
 
         socket.on(
@@ -575,9 +688,9 @@ io.on(
         );
 
         /*
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         | SKIP
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         */
 
         socket.on(
@@ -655,9 +768,9 @@ io.on(
         );
 
         /*
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         | END CHAT
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         */
 
         socket.on(
@@ -677,9 +790,9 @@ io.on(
         );
 
         /*
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         | FIND AGAIN
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         */
 
         socket.on(
@@ -696,9 +809,9 @@ io.on(
         );
 
         /*
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         | REPORT
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         */
 
         socket.on(
@@ -760,9 +873,9 @@ io.on(
         );
 
         /*
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         | DISCONNECT
-        |--------------------------------------------------------------------------
+        |------------------------------------------------------------------
         */
 
         socket.on(
@@ -773,6 +886,12 @@ io.on(
                     socket.id,
                     reason
                 );
+
+                sec.decrementConnection(
+                    sec.getClientIP(socket)
+                );
+
+                sec.decrementMetric("activeSessions");
 
                 if (
                     waitingUser ===
