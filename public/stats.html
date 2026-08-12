@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#f5efe6"
+    >
+
+    <title>SHTM Statistics</title>
+
+    <style>
+        :root {
+            --background: #f5efe6;
+            --card: #fffdf8;
+            --ink: #171717;
+            --muted: #77716a;
+            --green: #84cfa8;
+            --line: #1d1d1d;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            margin: 0;
+            font-family:
+                "Trebuchet MS",
+                "Arial Rounded MT Bold",
+                Arial,
+                sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(
+                    circle at 50% 45%,
+                    var(--background) 0%,
+                    #efe7d8 100%
+                );
+            min-height: 100vh;
+        }
+
+        .page {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        header h1 {
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            margin: 0 0 4px;
+        }
+
+        header p {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 11px;
+            font-weight: 900;
+            color: var(--green);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+
+        .error-banner {
+            display: none;
+            text-align: center;
+            padding: 14px;
+            margin-bottom: 20px;
+            background: #fff0ec;
+            border: 1.5px solid var(--line);
+            border-radius: 13px;
+            font-size: 12px;
+            color: var(--ink);
+        }
+
+        .error-banner.visible {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 28px;
+        }
+
+        .section h2 {
+            font-size: 15px;
+            font-weight: 900;
+            margin: 0 0 10px;
+            padding-bottom: 6px;
+            border-bottom: 1.5px solid var(--line);
+            letter-spacing: -0.02em;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th,
+        td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2dace;
+        }
+
+        th {
+            font-weight: 900;
+            color: var(--ink);
+            background: #f8f3eb;
+            white-space: nowrap;
+        }
+
+        td {
+            color: var(--ink);
+        }
+
+        td.number {
+            text-align: right;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 28px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 9px;
+            color: #aaa299;
+            margin-top: 24px;
+        }
+
+        footer a {
+            color: var(--muted);
+        }
+
+        .privacy-note {
+            text-align: center;
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid #e2dace;
+        }
+
+        @media (max-width: 600px) {
+            .page {
+                padding: 18px 12px 32px;
+            }
+
+            header h1 {
+                font-size: 22px;
+            }
+
+            th,
+            td {
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <main class="page">
+
+        <header>
+            <h1>SHTM Statistics</h1>
+            <p>Live and historical statistics from Say Hello To Me.</p>
+            <div class="live-badge">
+                <span class="live-dot"></span>
+                LIVE
+            </div>
+        </header>
+
+        <div
+            id="errorBanner"
+            class="error-banner"
+        >
+            Statistics are temporarily unavailable.
+        </div>
+
+        <div id="loading" class="loading-state">
+            Loading statistics...
+        </div>
+
+        <div id="content" style="display:none">
+
+            <!-- 1. Global Overview -->
+            <section class="section">
+                <h2>Global Overview</h2>
+                <div class="table-wrap">
+                    <table id="table-global">
+                        <thead>
+                            <tr>
+                                <th>Statistic</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 2. Users by Country -->
+            <section class="section">
+                <h2>Users by Country</h2>
+                <div class="table-wrap">
+                    <table id="table-countries">
+                        <thead>
+                            <tr>
+                                <th>Country</th>
+                                <th class="number">Users</th>
+                                <th class="number">Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 3. Users by Language -->
+            <section class="section">
+                <h2>Users by Language</h2>
+                <div class="table-wrap">
+                    <table id="table-languages">
+                        <thead>
+                            <tr>
+                                <th>Language</th>
+                                <th class="number">Users</th>
+                                <th class="number">Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 4. Matching Statistics -->
+            <section class="section">
+                <h2>Matching Statistics</h2>
+                <div class="table-wrap">
+                    <table id="table-matching">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th class="number">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 5. Conversation Statistics -->
+            <section class="section">
+                <h2>Conversation Statistics</h2>
+                <div class="table-wrap">
+                    <table id="table-conversation">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th class="number">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 6. System / Performance -->
+            <section class="section">
+                <h2>System / Performance</h2>
+                <div class="table-wrap">
+                    <table id="table-system">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th class="number">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div class="privacy-note">
+                Only aggregate data is shown. No personal information, IP
+                addresses, or individual user data is ever exposed.
+                Small counts (<3) are hidden for privacy.
+            </div>
+
+        </div>
+
+        <footer>
+            <a href="/">← Back to SHTM</a>
+        </footer>
+
+    </main>
+
+    <script>
+        (function () {
+            "use strict";
+
+            const loading =
+                document.getElementById("loading");
+
+            const content =
+                document.getElementById("content");
+
+            const errorBanner =
+                document.getElementById("errorBanner");
+
+            let hasData = false;
+
+            /**
+             * Format milliseconds as human-readable seconds.
+             */
+            function formatMs(ms) {
+                if (!ms || ms === 0) return "—";
+
+                const seconds = (ms / 1000).toFixed(1);
+                return seconds + "s";
+            }
+
+            /**
+             * Apply privacy threshold: show "<3" for 1-2.
+             */
+            function privacy(n) {
+                if (typeof n !== "number") return "—";
+                if (n === 1 || n === 2) return "<3";
+                return n;
+            }
+
+            /**
+             * Populate a key-value table.
+             */
+            function fillKeyValue(
+                tableId,
+                rows
+            ) {
+                const table =
+                    document.getElementById(
+                        tableId
+                    );
+
+                const tbody =
+                    table.querySelector("tbody");
+
+                tbody.innerHTML = rows
+                    .map(
+                        ([label, value]) =>
+                            "<tr>" +
+                            "<td>" +
+                            escapeHtml(label) +
+                            "</td>" +
+                            "<td class='number'>" +
+                            escapeHtml(
+                                String(value)
+                            ) +
+                            "</td>" +
+                            "</tr>"
+                    )
+                    .join("");
+            }
+
+            /**
+             * Populate a distribution table (country/language).
+             */
+            function fillDistribution(
+                tableId,
+                items,
+                emptyText
+            ) {
+                const table =
+                    document.getElementById(
+                        tableId
+                    );
+
+                const tbody =
+                    table.querySelector("tbody");
+
+                if (!items || items.length === 0) {
+                    tbody.innerHTML =
+                        "<tr><td colspan='3' class='empty-state'>" +
+                        escapeHtml(
+                            emptyText || "No data yet"
+                        ) +
+                        "</td></tr>";
+                    return;
+                }
+
+                tbody.innerHTML = items
+                    .map(
+                        (item) =>
+                            "<tr>" +
+                            "<td>" +
+                            escapeHtml(item.name) +
+                            "</td>" +
+                            "<td class='number'>" +
+                            privacy(item.count) +
+                            "</td>" +
+                            "<td class='number'>" +
+                            escapeHtml(
+                                item.percentage + "%"
+                            ) +
+                            "</td>" +
+                            "</tr>"
+                    )
+                    .join("");
+            }
+
+            function escapeHtml(str) {
+                const div =
+                    document.createElement("div");
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            /**
+             * Render all tables from API response.
+             */
+            function render(data) {
+                if (!data) return;
+
+                fillKeyValue("table-global", [
+                    [
+                        "Total Connections",
+                        privacy(data.global.totalConnections)
+                    ],
+                    [
+                        "Total Matches",
+                        privacy(data.global.totalMatches)
+                    ],
+                    [
+                        "Total Conversations",
+                        privacy(
+                            data.global.totalConversations
+                        )
+                    ],
+                    [
+                        "Active Users",
+                        privacy(data.global.activeUsers)
+                    ],
+                    [
+                        "Active Matches",
+                        privacy(
+                            data.global.activeMatches
+                        )
+                    ],
+                    [
+                        "Waiting Users",
+                        privacy(data.global.waitingUsers)
+                    ],
+                    [
+                        "Average Match Time",
+                        formatMs(
+                            data.global.avgMatchWaitMs
+                        )
+                    ],
+                    [
+                        "Average Conversation Duration",
+                        formatMs(
+                            data.global
+                                .avgConversationDurationMs
+                        )
+                    ]
+                ]);
+
+                fillDistribution(
+                    "table-countries",
+                    data.countries,
+                    "No data yet"
+                );
+
+                fillDistribution(
+                    "table-languages",
+                    data.languages,
+                    "No data yet"
+                );
+
+                fillKeyValue("table-matching", [
+                    [
+                        "Successful Matches",
+                        privacy(
+                            data.matching.successfulMatches
+                        )
+                    ],
+                    [
+                        "Average Wait Time",
+                        formatMs(
+                            data.matching.avgWaitMs
+                        )
+                    ],
+                    [
+                        "Median Wait Time",
+                        formatMs(
+                            data.matching.medianWaitMs
+                        )
+                    ],
+                    [
+                        "Longest Wait Time",
+                        formatMs(
+                            data.matching.longestWaitMs
+                        )
+                    ],
+                    [
+                        "Match Success Rate",
+                        data.matching.matchSuccessRate
+                    ],
+                    [
+                        "Active Matches",
+                        privacy(
+                            data.matching.activeMatches
+                        )
+                    ]
+                ]);
+
+                fillKeyValue("table-conversation", [
+                    [
+                        "Conversations Started",
+                        privacy(
+                            data.conversation.started
+                        )
+                    ],
+                    [
+                        "Conversations Completed",
+                        privacy(
+                            data.conversation.completed
+                        )
+                    ],
+                    [
+                        "Average Duration",
+                        formatMs(
+                            data.conversation
+                                .avgDurationMs
+                        )
+                    ],
+                    [
+                        "Median Duration",
+                        formatMs(
+                            data.conversation
+                                .medianDurationMs
+                        )
+                    ],
+                    [
+                        "Average Messages per Conversation",
+                        data.conversation
+                            .avgMessagesPerConversation
+                    ]
+                ]);
+
+                fillKeyValue("table-system", [
+                    [
+                        "Average WS Latency",
+                        data.system.avgWSLatencyMs > 0
+                            ? data.system
+                                  .avgWSLatencyMs + "ms"
+                            : "—"
+                    ],
+                    [
+                        "Connection Success Rate",
+                        data.system.connectionSuccessRate
+                    ],
+                    [
+                        "Disconnect Rate",
+                        data.system.disconnectRate
+                    ],
+                    [
+                        "API Errors",
+                        privacy(data.system.apiErrors)
+                    ]
+                ]);
+            }
+
+            /**
+             * Fetch stats from API.
+             */
+            async function fetchStats() {
+                try {
+                    const response =
+                        await fetch("/api/stats");
+
+                    if (!response.ok) {
+                        throw new Error(
+                            "HTTP " + response.status
+                        );
+                    }
+
+                    const data =
+                        await response.json();
+
+                    if (!hasData) {
+                        loading.style.display =
+                            "none";
+                        content.style.display =
+                            "block";
+                        hasData = true;
+                    }
+
+                    errorBanner.classList.remove(
+                        "visible"
+                    );
+
+                    render(data);
+                } catch (err) {
+                    console.error(
+                        "Stats fetch error:",
+                        err
+                    );
+
+                    if (!hasData) {
+                        loading.style.display =
+                            "none";
+                        errorBanner.classList.add(
+                            "visible"
+                        );
+                    }
+                }
+            }
+
+            // Initial fetch
+            fetchStats();
+
+            // Poll every 10 seconds
+            setInterval(fetchStats, 10_000);
+        })();
+    </script>
+
+</body>
+</html>

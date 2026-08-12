@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const path = require("path");
 const { Server } = require("socket.io");
 const sec = require("./security");
+const anl = require("./analytics");
 
 const app = express();
 
@@ -122,6 +123,19 @@ app.get("/", (req, res) => {
     );
 });
 
+app.get("/stats", (req, res) => {
+    res.sendFile(
+        path.join(
+            publicPath,
+            "stats.html"
+        )
+    );
+});
+
+app.get("/api/stats", (req, res) => {
+    res.json(anl.getStats());
+});
+
 /*
 |--------------------------------------------------------------------------
 | HELPERS
@@ -179,6 +193,16 @@ function getPartner(socket) {
         ) || null;
 }
 
+function trackMatchWait(userA, userB) {
+    const now = Date.now();
+    if (userA._queuedAt) {
+        anl.trackMatchWaitTime(now - userA._queuedAt);
+    }
+    if (userB._queuedAt) {
+        anl.trackMatchWaitTime(now - userB._queuedAt);
+    }
+}
+
 /*
 |--------------------------------------------------------------------------
 | MATCHMAKING
@@ -230,6 +254,8 @@ function queueUser(socket) {
 
         waitingUser = null;
 
+        trackMatchWait(other, socket);
+
         createMatch(
             other,
             socket
@@ -239,6 +265,8 @@ function queueUser(socket) {
     }
 
     waitingUser = socket;
+
+    socket._queuedAt = Date.now();
 
     send(
         socket,
@@ -254,6 +282,9 @@ function createMatch(
     userA,
     userB
 ) {
+    anl.trackMatchStarted();
+    anl.trackConversationStarted();
+
     const roomId =
         `room_${crypto.randomUUID()}`;
 
@@ -339,6 +370,12 @@ function finishRoom(
             "Eşleşme atlandı.";
     }
 
+    // Track conversation duration
+    const convStart = users[0].matchStartedAt;
+    if (convStart) {
+        anl.trackConversationEnded(Date.now() - convStart);
+    }
+
     io.to(roomId).emit(
         "roomEnded",
         {
@@ -418,6 +455,40 @@ io.on(
         socket.lastTypingAt = 0;
 
         socket.typing = false;
+
+        anl.setActiveCountGetters(
+            () => io.sockets.sockets.size,
+            () => {
+                let matchRooms = 0;
+                const rooms =
+                    io.sockets.adapter.rooms;
+                for (
+                    const [name, members]
+                    of rooms
+                ) {
+                    if (
+                        name.startsWith(
+                            "room_"
+                        ) &&
+                        members.size === 2
+                    ) {
+                        matchRooms += 1;
+                    }
+                }
+                return matchRooms;
+            },
+            () =>
+                waitingUser ? 1 : 0
+        );
+
+        anl.trackConnection(
+            anl.getCountryFromRequest(
+                socket.request
+            ),
+            anl.getLanguageFromRequest(
+                socket.request
+            )
+        );
 
         queueUser(socket);
 
@@ -523,6 +594,7 @@ io.on(
                     now;
 
                 sec.incrementMetric("imageUploads");
+                anl.trackImage();
 
                 socket.typing = false;
 
@@ -624,6 +696,7 @@ io.on(
                 }
 
                 sec.incrementMetric("messages");
+                anl.trackMessage();
 
                 socket.typing = false;
 
@@ -899,6 +972,8 @@ io.on(
                 );
 
                 sec.decrementMetric("activeSessions");
+
+                anl.trackDisconnect();
 
                 if (
                     waitingUser ===
