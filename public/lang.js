@@ -27,6 +27,8 @@
     const UI_TR = {
         connected: "Bağlandı",
         disconnected: "Bağlantı kesildi",
+        connecting: "Bağlanıyor...",
+        reconnecting: "Yeniden bağlanılıyor...",
         connection_lost:
             "Bağlantı koptu. Yeniden bağlanmayı deniyorum...",
         system_prefix: "Sistem: ",
@@ -63,6 +65,8 @@
     const UI_EN = {
         connected: "Connected",
         disconnected: "Disconnected",
+        connecting: "Connecting...",
+        reconnecting: "Reconnecting...",
         connection_lost:
             "Connection lost. Trying to reconnect...",
         system_prefix: "System: ",

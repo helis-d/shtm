@@ -337,6 +337,23 @@
                 </div>
             </section>
 
+            <!-- 7. Disconnect Reasons -->
+            <section class="section">
+                <h2>Disconnect Reasons</h2>
+                <div class="table-wrap">
+                    <table id="table-disconnects">
+                        <thead>
+                            <tr>
+                                <th>Reason</th>
+                                <th class="number">Count</th>
+                                <th class="number">Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
             <div class="privacy-note">
                 Only aggregate data is shown. No personal information, IP
                 addresses, or individual user data is ever exposed.
@@ -463,6 +480,46 @@
                     .join("");
             }
 
+            /**
+             * Populate the disconnect-reasons distribution table.
+             */
+            function fillDisconnectReasons(items) {
+                const table =
+                    document.getElementById(
+                        "table-disconnects"
+                    );
+
+                const tbody =
+                    table.querySelector("tbody");
+
+                if (!items || items.length === 0) {
+                    tbody.innerHTML =
+                        "<tr><td colspan='3' class='empty-state'>" +
+                        "No data yet" +
+                        "</td></tr>";
+                    return;
+                }
+
+                tbody.innerHTML = items
+                    .map(
+                        (item) =>
+                            "<tr>" +
+                            "<td>" +
+                            escapeHtml(item.reason) +
+                            "</td>" +
+                            "<td class='number'>" +
+                            escapeHtml(String(item.count)) +
+                            "</td>" +
+                            "<td class='number'>" +
+                            escapeHtml(
+                                item.percentage + "%"
+                            ) +
+                            "</td>" +
+                            "</tr>"
+                    )
+                    .join("");
+            }
+
             function escapeHtml(str) {
                 const div =
                     document.createElement("div");
@@ -546,9 +603,21 @@
                         )
                     ],
                     [
-                        "Median Wait Time",
+                        "p50 Wait Time",
                         formatMs(
-                            data.matching.medianWaitMs
+                            data.matching.p50WaitMs
+                        )
+                    ],
+                    [
+                        "p95 Wait Time",
+                        formatMs(
+                            data.matching.p95WaitMs
+                        )
+                    ],
+                    [
+                        "p99 Wait Time",
+                        formatMs(
+                            data.matching.p99WaitMs
                         )
                     ],
                     [
@@ -605,25 +674,72 @@
 
                 fillKeyValue("table-system", [
                     [
-                        "Average WS Latency",
-                        data.system.avgWSLatencyMs > 0
-                            ? data.system
-                                  .avgWSLatencyMs + "ms"
-                            : "—"
+                        "Connection Attempts",
+                        privacy(data.system.connectionAttempts)
+                    ],
+                    [
+                        "Connection Accepted",
+                        privacy(data.system.connectionAccepted)
+                    ],
+                    [
+                        "Connection Rejected",
+                        privacy(data.system.connectionRejected)
                     ],
                     [
                         "Connection Success Rate",
                         data.system.connectionSuccessRate
                     ],
                     [
-                        "Disconnect Rate",
+                        "Connection Failure Rate",
+                        data.system.connectionFailureRate
+                    ],
+                    [
+                        "Disconnect Count",
+                        privacy(data.system.disconnectCount)
+                    ],
+                    [
+                        "Disconnect Rate (churn)",
                         data.system.disconnectRate
                     ],
                     [
-                        "API Errors",
+                        "Average WS Latency",
+                        data.system.avgWSLatencyMs > 0
+                            ? data.system.avgWSLatencyMs + "ms"
+                            : "—"
+                    ],
+                    [
+                        "p50 WS Latency",
+                        data.system.p50WSLatencyMs > 0
+                            ? data.system.p50WSLatencyMs + "ms"
+                            : "—"
+                    ],
+                    [
+                        "p95 WS Latency",
+                        data.system.p95WSLatencyMs > 0
+                            ? data.system.p95WSLatencyMs + "ms"
+                            : "—"
+                    ],
+                    [
+                        "Average Socket Lifetime",
+                        formatMs(
+                            data.system.avgSocketLifetimeMs
+                        )
+                    ],
+                    [
+                        "p50 Socket Lifetime",
+                        formatMs(
+                            data.system.p50SocketLifetimeMs
+                        )
+                    ],
+                    [
+                        "API Errors (rate limits)",
                         privacy(data.system.apiErrors)
                     ]
                 ]);
+
+                fillDisconnectReasons(
+                    data.disconnectReasons
+                );
             }
 
             /**

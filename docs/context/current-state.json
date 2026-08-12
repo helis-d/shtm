@@ -1,0 +1,218 @@
+{
+  "project": "SHTM",
+  "generatedAt": "2026-08-12T18:47:14.396Z",
+  "generator": "scripts/build-context.js",
+  "architecture": {
+    "frontend": "vanilla JS + HTML + CSS in public/",
+    "backend": "Express 5 + Socket.IO 4.8 in api/",
+    "persistence": "none — in-memory only (ephemeral)",
+    "realtime": "Socket.IO WebSocket-only"
+  },
+  "runtime": {
+    "platform": "Vercel serverless (single instance) + local Node",
+    "entrypoint": "api/index.js",
+    "localDevCommand": "npm run dev",
+    "localStartCommand": "npm start"
+  },
+  "realtime": {
+    "serverEvents": [
+      "image",
+      "matched",
+      "message",
+      "messageError",
+      "partnerLeft",
+      "readyForNewMatch",
+      "reportError",
+      "reportSent",
+      "roomEnded",
+      "searching",
+      "skipped",
+      "typing"
+    ],
+    "clientEvents": [
+      "endChat",
+      "findAgain",
+      "report",
+      "sendImage",
+      "sendMessage",
+      "skip",
+      "system:pong",
+      "typing"
+    ],
+    "transports": [
+      "websocket"
+    ],
+    "stateMachines": {
+      "socket": [
+        "connected",
+        "disconnected",
+        "matched",
+        "waiting"
+      ]
+    }
+  },
+  "matchmaking": {
+    "model": "single-slot in-memory queue (waitingUser)",
+    "states": [
+      "waiting",
+      "matched",
+      "active",
+      "ended",
+      "aborted"
+    ],
+    "timers": [
+      "60s room timeout"
+    ]
+  },
+  "stateMachines": {
+    "socket": [
+      "connected",
+      "disconnected",
+      "matched",
+      "waiting"
+    ],
+    "disconnectReasons": [
+      "authentication_failure",
+      "client_disconnect",
+      "duplicate_connection",
+      "network_error",
+      "server_shutdown",
+      "stale_socket",
+      "timeout",
+      "transport_close",
+      "transport_error",
+      "unknown"
+    ]
+  },
+  "events": {
+    "serverToClient": [
+      "image",
+      "matched",
+      "message",
+      "messageError",
+      "partnerLeft",
+      "readyForNewMatch",
+      "reportError",
+      "reportSent",
+      "roomEnded",
+      "searching",
+      "skipped",
+      "typing"
+    ],
+    "clientToServer": [
+      "endChat",
+      "findAgain",
+      "report",
+      "sendImage",
+      "sendMessage",
+      "skip",
+      "system:pong",
+      "typing"
+    ],
+    "analyticsTracking": [
+      "trackConnectionAttempt",
+      "trackConnectionAccepted",
+      "trackConnectionRejected",
+      "trackDisconnect",
+      "trackSocketLifetime",
+      "trackMatchStarted",
+      "trackMatchWaitTime",
+      "trackMatchCompleted",
+      "trackMatchAborted",
+      "trackConversationStarted",
+      "trackConversationEnded",
+      "trackMessage",
+      "trackImage",
+      "trackRateLimitViolation",
+      "trackWSLatency"
+    ]
+  },
+  "security": {
+    "rateLimits": {
+      "connectionsPerIp": "5 / 10s",
+      "matchmakingCooldown": "3s per socket",
+      "messageBurst": "5 / 4s with 2s cooldown",
+      "imageUploadCooldown": "10s per socket"
+    },
+    "validation": [
+      "sanitizeMessage (1-500 chars)",
+      "validateImagePayload (MIME + magic bytes + 5MiB)",
+      "checkPayloadSize (anti-flood)"
+    ]
+  },
+  "observability": {
+    "metrics": [
+      "connectionAttempts",
+      "connectionAccepted",
+      "connectionRejected",
+      "disconnects",
+      "matchesStarted",
+      "matchesCompleted",
+      "matchesAborted",
+      "conversationsStarted",
+      "conversationsEnded",
+      "totalMessages",
+      "totalImages",
+      "rateLimitViolations"
+    ],
+    "logging": "structured JSON via api/logger.js",
+    "correlationIds": [
+      "sessionId",
+      "socketId",
+      "matchId"
+    ]
+  },
+  "deployment": {
+    "routing": "vercel.json rewrites /* -> /api/index",
+    "env": [],
+    "dependencies": [
+      "@vercel/speed-insights",
+      "express",
+      "socket.io"
+    ],
+    "devDependencies": [
+      "socket.io-client"
+    ]
+  },
+  "invariants": [
+    "A socket must not be in the waiting pool and a room at the same time.",
+    "A socket must not belong to two rooms.",
+    "Room cleanup must be idempotent.",
+    "Client-controlled state is never authoritative for security/transition decisions.",
+    "Metrics must use explicit, matching numerator/denominator pairs."
+  ],
+  "knownRisks": [
+    "In-memory state resets on cold start (serverless).",
+    "Single-slot matchmaking does not scale to multi-instance.",
+    "Rate limiting is per-instance, not global.",
+    "No persistent message/history storage."
+  ],
+  "criticalFiles": {
+    "files": [
+      "api/index.js",
+      "api/security.js",
+      "api/analytics.js",
+      "api/logger.js",
+      "public/app.js",
+      "public/lang.js",
+      "public/index.html",
+      "public/stats.html",
+      "public/style.css",
+      "vercel.json",
+      "package.json"
+    ],
+    "roles": {
+      "api/index.js": "HTTP + Socket.IO server, lifecycle, matchmaking, routing",
+      "api/security.js": "rate limiting, payload/MIME validation, metrics",
+      "api/analytics.js": "aggregate metrics and /api/stats response",
+      "api/logger.js": "structured logger, enums, disconnect forensics",
+      "public/app.js": "client socket wiring and connection UX",
+      "public/lang.js": "i18n (tr/en) and icebreakers",
+      "public/index.html": "main page",
+      "public/stats.html": "public stats page",
+      "public/style.css": "styling",
+      "vercel.json": "routing config",
+      "package.json": "dependencies and scripts"
+    }
+  }
+}

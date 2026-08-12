@@ -7,8 +7,37 @@
 |==============================================================================
 */
 
+/*
+|--------------------------------------------------------------------------
+| CLIENT CONNECTION STATE
+|--------------------------------------------------------------------------
+| Explicit lifecycle: connecting → connected → reconnecting → disconnected.
+| Surfaced to the user so the interface never silently freezes.
+|--------------------------------------------------------------------------
+*/
+
+const CONNECTION_STATE = {
+    CONNECTING: "connecting",
+    CONNECTED: "connected",
+    RECONNECTING: "reconnecting",
+    DISCONNECTED: "disconnected"
+};
+
+let connectionState = CONNECTION_STATE.CONNECTING;
+
+function setConnectionState(state) {
+    connectionState = state;
+}
+
 const socket = io({
-    transports: ["websocket"]
+    transports: ["websocket"],
+    // Deterministic reconnect with capped attempts (no infinite storms)
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 8000,
+    randomizationFactor: 0.5,
+    timeout: 10000
 });
 
 
@@ -557,6 +586,10 @@ window.addEventListener(
 socket.on(
     "connect",
     () => {
+        setConnectionState(
+            CONNECTION_STATE.CONNECTED
+        );
+
         setStatus(
             t.key("connected"),
             "active"
@@ -566,8 +599,74 @@ socket.on(
 
 
 socket.on(
-    "disconnect",
+    "connect_error",
+    (err) => {
+        setConnectionState(
+            CONNECTION_STATE.DISCONNECTED
+        );
+
+        setStatus(
+            t.key("disconnected")
+        );
+    }
+);
+
+
+socket.io.on(
+    "reconnect_attempt",
     () => {
+        setConnectionState(
+            CONNECTION_STATE.RECONNECTING
+        );
+
+        setStatus(
+            t.key("reconnecting"),
+            "searching"
+        );
+
+        addMessage(
+            t.key("reconnecting")
+        );
+    }
+);
+
+
+socket.io.on(
+    "reconnect",
+    () => {
+        setConnectionState(
+            CONNECTION_STATE.CONNECTED
+        );
+
+        setStatus(
+            t.key("connected"),
+            "active"
+        );
+    }
+);
+
+
+socket.io.on(
+    "reconnect_failed",
+    () => {
+        setConnectionState(
+            CONNECTION_STATE.DISCONNECTED
+        );
+
+        setStatus(
+            t.key("disconnected")
+        );
+    }
+);
+
+
+socket.on(
+    "disconnect",
+    (reason) => {
+        setConnectionState(
+            CONNECTION_STATE.DISCONNECTED
+        );
+
         setChatState(false);
 
         clearTimer();
@@ -581,6 +680,17 @@ socket.on(
         addMessage(
             t.key("connection_lost")
         );
+    }
+);
+
+
+// Server round-trip latency ping (see api/index.js system:ping)
+socket.on(
+    "system:ping",
+    (data) => {
+        socket.emit("system:pong", {
+            t: data && data.t
+        });
     }
 );
 

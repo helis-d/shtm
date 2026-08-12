@@ -207,7 +207,8 @@ function checkMessageRate(socketId) {
     ) {
         tracker = {
             windowStart: now,
-            count: 1
+            count: 1,
+            lastMessageAt: now
         };
 
         messageTracker.set(socketId, tracker);

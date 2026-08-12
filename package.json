@@ -1,11 +1,14 @@
 {
   "name": "shtm",
   "version": "1.0.0",
-  "description": "SHTM — Say Hello To Me. 30-second anonymous conversations.",
+  "description": "SHTM — Say Hello To Me. 60-second anonymous conversations.",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "test": "node --test --test-reporter=spec test/*.test.js",
+    "context:build": "node scripts/build-context.js",
+    "context:check": "node scripts/check-context.js"
   },
   "keywords": [
     "shtm",
@@ -20,5 +23,8 @@
     "@vercel/speed-insights": "^2.0.0",
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
   }
 }

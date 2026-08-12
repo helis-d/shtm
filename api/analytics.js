@@ -6,8 +6,8 @@
 | Anonymous aggregate statistics tracking for /stats page.
 | NO personally identifiable information is collected.
 |
-| Tracks: connections, matches, conversations, wait times, durations,
-|          country distribution, language distribution, system metrics.
+| Tracks: connections, disconnects, matches, conversations, wait times,
+|          durations, latency, country/language distribution, system metrics.
 |
 | DESIGN: In-memory (single Vercel instance). Data resets on cold start.
 |         This is acceptable for the current MVP — stats represent
@@ -15,6 +15,19 @@
 |
 | PRIVACY: Only aggregate counts and distributions. No IPs, session IDs,
 |          socket IDs, or individual user data is exposed.
+|
+| METRIC CORRECTNESS:
+|   Denominators are explicit and documented. Rates are computed from
+|   matching numerator/denominator pairs:
+|
+|     connectionSuccessRate = acceptedConnections / connectionAttempts
+|     connectionFailureRate = rejectedConnections / connectionAttempts
+|     matchSuccessRate      = matchesCompleted    / matchesStarted
+|     matchFailureRate      = matchesAborted      / matchesStarted
+|     conversationRate      = conversationsEnded  / conversationsStarted
+|
+|   "disconnectRate" is intentionally reported as churn: disconnected /
+|   acceptedConnections. It is NOT a failure metric.
 |==============================================================================
 */
 
@@ -27,12 +40,21 @@ const CHAT_DURATION = 60_000;
 */
 
 const events = {
-    connections: 0,
+    // Connection lifecycle (attempts include rejected handshakes)
+    connectionAttempts: 0,
+    connectionAccepted: 0,
+    connectionRejected: 0,
     disconnects: 0,
+
+    // Match lifecycle
     matchesStarted: 0,
     matchesCompleted: 0,
+    matchesAborted: 0,
+
+    // Conversation lifecycle
     conversationsStarted: 0,
     conversationsEnded: 0,
+
     totalMessages: 0,
     totalImages: 0,
     rateLimitViolations: 0
@@ -41,16 +63,18 @@ const events = {
 const countries = {};
 const languages = {};
 
+// Disconnect reason distribution (categories, not personal data)
+const disconnectReasons = {};
+
 const matchWaitTimes = [];
 const conversationDurations = [];
 const wsLatencies = [];
 
+// Session lifetimes (ms) for p50/p95/p99 socket-lifetime metrics
+const socketLifetimes = [];
+
 // Maximum samples to keep in memory (prevent unbounded growth)
 const MAX_SAMPLES = 1000;
-
-// Connection timestamps for calculating average session length
-let connectionStartTimes = [];
-const SESSION_SAMPLE_MAX = 500;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,8 +82,12 @@ const SESSION_SAMPLE_MAX = 500;
 |--------------------------------------------------------------------------
 */
 
-function trackConnection(country, language) {
-    events.connections += 1;
+function trackConnectionAttempt() {
+    events.connectionAttempts += 1;
+}
+
+function trackConnectionAccepted(country, language) {
+    events.connectionAccepted += 1;
 
     if (country) {
         countries[country] = (countries[country] || 0) + 1;
@@ -68,15 +96,32 @@ function trackConnection(country, language) {
     if (language) {
         languages[language] = (languages[language] || 0) + 1;
     }
+}
 
-    connectionStartTimes.push(Date.now());
-    if (connectionStartTimes.length > SESSION_SAMPLE_MAX) {
-        connectionStartTimes.shift();
+// Backward-compatible alias: historically named "trackConnection"
+function trackConnection(country, language) {
+    trackConnectionAccepted(country, language);
+}
+
+function trackConnectionRejected() {
+    events.connectionRejected += 1;
+}
+
+function trackDisconnect(reasonCategory) {
+    events.disconnects += 1;
+
+    if (reasonCategory) {
+        disconnectReasons[reasonCategory] =
+            (disconnectReasons[reasonCategory] || 0) + 1;
     }
 }
 
-function trackDisconnect() {
-    events.disconnects += 1;
+function trackSocketLifetime(ms) {
+    if (!Number.isFinite(ms) || ms < 0) return;
+    socketLifetimes.push(ms);
+    if (socketLifetimes.length > MAX_SAMPLES) {
+        socketLifetimes.shift();
+    }
 }
 
 function trackMatchStarted() {
@@ -84,6 +129,7 @@ function trackMatchStarted() {
 }
 
 function trackMatchWaitTime(ms) {
+    if (!Number.isFinite(ms) || ms < 0) return;
     matchWaitTimes.push(ms);
     if (matchWaitTimes.length > MAX_SAMPLES) {
         matchWaitTimes.shift();
@@ -94,15 +140,21 @@ function trackMatchCompleted() {
     events.matchesCompleted += 1;
 }
 
+function trackMatchAborted() {
+    events.matchesAborted += 1;
+}
+
 function trackConversationStarted() {
     events.conversationsStarted += 1;
 }
 
 function trackConversationEnded(durationMs) {
     events.conversationsEnded += 1;
-    conversationDurations.push(durationMs);
-    if (conversationDurations.length > MAX_SAMPLES) {
-        conversationDurations.shift();
+    if (Number.isFinite(durationMs) && durationMs >= 0) {
+        conversationDurations.push(durationMs);
+        if (conversationDurations.length > MAX_SAMPLES) {
+            conversationDurations.shift();
+        }
     }
 }
 
@@ -119,6 +171,7 @@ function trackRateLimitViolation() {
 }
 
 function trackWSLatency(ms) {
+    if (!Number.isFinite(ms) || ms < 0) return;
     wsLatencies.push(ms);
     if (wsLatencies.length > MAX_SAMPLES) {
         wsLatencies.shift();
@@ -136,20 +189,18 @@ function trackWSLatency(ms) {
  * Vercel provides: x-vercel-ip-country (ISO 3166-1 alpha-2)
  */
 function getCountryFromRequest(req) {
-    return (
-        req.headers["x-vercel-ip-country"] ||
-        req.headers["cf-ipcountry"] ||
-        ""
-    ).toUpperCase() || null;
+    const raw =
+        req?.headers?.["x-vercel-ip-country"] ||
+        req?.headers?.["cf-ipcountry"] ||
+        "";
+    return raw ? raw.toUpperCase() : null;
 }
 
 /**
  * Extract language preference from Accept-Language header.
  */
 function getLanguageFromRequest(req) {
-    const header = req.headers["accept-language"] || "";
-
-    // Parse primary language from Accept-Language
+    const header = req?.headers?.["accept-language"] || "";
     const match = header.match(/^([a-zA-Z]{2})/);
     if (match) {
         const code = match[1].toLowerCase();
@@ -160,9 +211,6 @@ function getLanguageFromRequest(req) {
     return null;
 }
 
-/**
- * Map ISO 3166-1 alpha-2 country code to readable name.
- */
 const COUNTRY_NAMES = {
     TR: "Turkey",
     US: "United States",
@@ -265,7 +313,7 @@ function languageName(code) {
 
 /*
 |--------------------------------------------------------------------------
-| STATS AGGREGATION
+| STATISTICS MATH
 |--------------------------------------------------------------------------
 */
 
@@ -283,23 +331,34 @@ function median(arr) {
         : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+/**
+ * Linear-interpolated percentile (p in [0, 1]).
+ */
+function percentile(arr, p) {
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const pos = (sorted.length - 1) * p;
+    const lo = Math.floor(pos);
+    const hi = Math.ceil(pos);
+    if (lo === hi) return sorted[lo];
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
 function max(arr) {
     if (!arr.length) return 0;
     return Math.max(...arr);
 }
 
 /**
- * Small-number privacy: return "<3" instead of 1 or 2.
+ * Compute a rate as a percentage string with an explicit numerator and
+ * denominator. Returns "0.0" when the denominator is zero (no data), never
+ * NaN or Infinity.
  */
-function privacyCount(n) {
-    if (typeof n !== "number") return 0;
-    if (n === 1 || n === 2) return 0; // Will display as "<3"
-    return n;
+function rate(numerator, denominator) {
+    if (!denominator) return "0.0";
+    return ((numerator / denominator) * 100).toFixed(1);
 }
 
-/**
- * Build sorted country distribution with privacy applied.
- */
 function getCountryDistribution() {
     const total = Object.values(countries).reduce((a, b) => a + b, 0);
 
@@ -314,9 +373,6 @@ function getCountryDistribution() {
         .slice(0, 10);
 }
 
-/**
- * Build sorted language distribution with privacy applied.
- */
 function getLanguageDistribution() {
     const total = Object.values(languages).reduce((a, b) => a + b, 0);
 
@@ -331,9 +387,21 @@ function getLanguageDistribution() {
         .slice(0, 10);
 }
 
+function getDisconnectReasonDistribution() {
+    const total = Object.values(disconnectReasons).reduce((a, b) => a + b, 0);
+
+    return Object.entries(disconnectReasons)
+        .map(([reason, count]) => ({
+            reason,
+            count,
+            percentage: total ? ((count / total) * 100).toFixed(1) : "0.0"
+        }))
+        .sort((a, b) => b.count - a.count);
+}
+
 /**
  * Get the active user/session count from the main server.
- * This is injected by api/index.js since it has access to io.
+ * Injected by api/index.js since it has access to io.
  */
 let getActiveUserCount = () => 0;
 let getActiveMatchCount = () => 0;
@@ -356,49 +424,33 @@ function setActiveCountGetters(
 */
 
 function getStats() {
-    const totalConnections = events.connections;
-    const totalDisconnects = events.disconnects;
+    const attempts = events.connectionAttempts;
+    const accepted = events.connectionAccepted;
+    const rejected = events.connectionRejected;
+    const disconnects = events.disconnects;
+
+    const started = events.matchesStarted;
+    const completed = events.matchesCompleted;
+    const aborted = events.matchesAborted;
+
     const activeUsers = getActiveUserCount();
     const activeMatches = getActiveMatchCount();
     const waitingUsers = getWaitingUserCount();
-
-    const connectionSuccessRate = totalConnections
-        ? (((totalConnections - totalDisconnects) / totalConnections) * 100).toFixed(1)
-        : "0.0";
-
-    const matchSuccessRate = events.matchesStarted
-        ? ((events.matchesCompleted / events.matchesStarted) * 100).toFixed(1)
-        : "0.0";
-
-    const avgMatchWait = average(matchWaitTimes);
-    const medianMatchWait = median(matchWaitTimes);
-    const longestMatchWait = max(matchWaitTimes);
-
-    const avgConversationDuration = average(conversationDurations);
-    const medianConversationDuration = median(conversationDurations);
-
-    const avgMessagesPerConversation = events.conversationsStarted
-        ? (events.totalMessages / events.conversationsStarted).toFixed(1)
-        : "0.0";
-
-    const avgWSLatency = average(wsLatencies);
-
-    const disconnectRate = totalConnections
-        ? ((totalDisconnects / totalConnections) * 100).toFixed(1)
-        : "0.0";
 
     return {
         timestamp: Date.now(),
 
         global: {
-            totalConnections,
-            totalMatches: events.matchesStarted,
+            totalConnections: accepted,
+            totalMatches: started,
             totalConversations: events.conversationsStarted,
             activeUsers,
             activeMatches,
             waitingUsers,
-            avgMatchWaitMs: Math.round(avgMatchWait),
-            avgConversationDurationMs: Math.round(avgConversationDuration)
+            avgMatchWaitMs: Math.round(average(matchWaitTimes)),
+            avgConversationDurationMs: Math.round(
+                average(conversationDurations)
+            )
         },
 
         countries: getCountryDistribution(),
@@ -406,29 +458,54 @@ function getStats() {
         languages: getLanguageDistribution(),
 
         matching: {
-            successfulMatches: events.matchesStarted,
-            avgWaitMs: Math.round(avgMatchWait),
-            medianWaitMs: Math.round(medianMatchWait),
-            longestWaitMs: Math.round(longestMatchWait),
-            matchSuccessRate: matchSuccessRate + "%",
+            started,
+            completed,
+            aborted,
+            successfulMatches: completed,
+            avgWaitMs: Math.round(average(matchWaitTimes)),
+            p50WaitMs: Math.round(percentile(matchWaitTimes, 0.5)),
+            p95WaitMs: Math.round(percentile(matchWaitTimes, 0.95)),
+            p99WaitMs: Math.round(percentile(matchWaitTimes, 0.99)),
+            longestWaitMs: Math.round(max(matchWaitTimes)),
+            matchSuccessRate: rate(completed, started) + "%",
+            matchFailureRate: rate(aborted, started) + "%",
             activeMatches
         },
 
         conversation: {
             started: events.conversationsStarted,
             completed: events.conversationsEnded,
-            avgDurationMs: Math.round(avgConversationDuration),
-            medianDurationMs: Math.round(medianConversationDuration),
-            avgMessagesPerConversation
+            avgDurationMs: Math.round(average(conversationDurations)),
+            p50DurationMs: Math.round(percentile(conversationDurations, 0.5)),
+            p95DurationMs: Math.round(percentile(conversationDurations, 0.95)),
+            medianDurationMs: Math.round(median(conversationDurations)),
+            avgMessagesPerConversation: events.conversationsStarted
+                ? (events.totalMessages / events.conversationsStarted).toFixed(1)
+                : "0.0",
+            completionRate:
+                rate(events.conversationsEnded, events.conversationsStarted) +
+                "%"
         },
 
         system: {
-            avgResponseTimeMs: 0,
-            avgWSLatencyMs: Math.round(avgWSLatency),
-            connectionSuccessRate: connectionSuccessRate + "%",
-            disconnectRate: disconnectRate + "%",
+            connectionAttempts: attempts,
+            connectionAccepted: accepted,
+            connectionRejected: rejected,
+            connectionSuccessRate: rate(accepted, attempts) + "%",
+            connectionFailureRate: rate(rejected, attempts) + "%",
+            disconnectCount: disconnects,
+            disconnectRate: rate(disconnects, accepted) + "%",
+            avgWSLatencyMs: Math.round(average(wsLatencies)),
+            p50WSLatencyMs: Math.round(percentile(wsLatencies, 0.5)),
+            p95WSLatencyMs: Math.round(percentile(wsLatencies, 0.95)),
+            p99WSLatencyMs: Math.round(percentile(wsLatencies, 0.99)),
+            avgSocketLifetimeMs: Math.round(average(socketLifetimes)),
+            p50SocketLifetimeMs: Math.round(percentile(socketLifetimes, 0.5)),
+            p95SocketLifetimeMs: Math.round(percentile(socketLifetimes, 0.95)),
             apiErrors: events.rateLimitViolations
-        }
+        },
+
+        disconnectReasons: getDisconnectReasonDistribution()
     };
 }
 
@@ -439,32 +516,31 @@ function getStats() {
 */
 
 function reset() {
-    events.connections = 0;
-    events.disconnects = 0;
-    events.matchesStarted = 0;
-    events.matchesCompleted = 0;
-    events.conversationsStarted = 0;
-    events.conversationsEnded = 0;
-    events.totalMessages = 0;
-    events.totalImages = 0;
-    events.rateLimitViolations = 0;
-
+    for (const key of Object.keys(events)) events[key] = 0;
     for (const key of Object.keys(countries)) delete countries[key];
     for (const key of Object.keys(languages)) delete languages[key];
+    for (const key of Object.keys(disconnectReasons)) {
+        delete disconnectReasons[key];
+    }
 
     matchWaitTimes.length = 0;
     conversationDurations.length = 0;
     wsLatencies.length = 0;
-    connectionStartTimes = [];
+    socketLifetimes.length = 0;
 }
 
 module.exports = {
     // Tracking
+    trackConnectionAttempt,
     trackConnection,
+    trackConnectionAccepted,
+    trackConnectionRejected,
     trackDisconnect,
+    trackSocketLifetime,
     trackMatchStarted,
     trackMatchWaitTime,
     trackMatchCompleted,
+    trackMatchAborted,
     trackConversationStarted,
     trackConversationEnded,
     trackMessage,
@@ -475,6 +551,10 @@ module.exports = {
     // Helpers
     getCountryFromRequest,
     getLanguageFromRequest,
+    average,
+    median,
+    percentile,
+    rate,
 
     // Stats
     getStats,
@@ -484,5 +564,6 @@ module.exports = {
     // Expose for testing
     _events: events,
     _countries: countries,
-    _languages: languages
+    _languages: languages,
+    _disconnectReasons: disconnectReasons
 };
