@@ -174,6 +174,94 @@
             "Image must be 5 MB or smaller."
     };
 
+    // ============================================================
+    //  ICEBREAKER QUESTIONS (index 0–19)
+    //  Picked randomly by server, displayed once per match.
+    // ============================================================
+
+    const ICEBREAKERS = [
+        {
+            en: "What's something you've been really into lately?",
+            tr: "Son zamanlarda gerçekten ilgini çeken bir şey ne?"
+        },
+        {
+            en: "What's a hobby you could talk about for hours?",
+            tr: "Saatlerce konuşabileceğin bir hobin ne?"
+        },
+        {
+            en: "What's the best thing you've watched recently?",
+            tr: "Son zamanlarda izlediğin en iyi şey neydi?"
+        },
+        {
+            en: "If you could instantly learn one skill, what would it be?",
+            tr: "Bir beceriyi anında öğrenebilsen hangisini seçerdin?"
+        },
+        {
+            en: "What's a small thing that always makes your day better?",
+            tr: "Gününü her zaman biraz daha iyi yapan küçük bir şey nedir?"
+        },
+        {
+            en: "What kind of music do you usually listen to?",
+            tr: "Genelde ne tür müzik dinlersin?"
+        },
+        {
+            en: "What's a game you never get tired of?",
+            tr: "Oynamaktan hiç sıkılmadığın bir oyun var mı?"
+        },
+        {
+            en: "What's a place you'd love to visit someday?",
+            tr: "Bir gün mutlaka ziyaret etmek istediğin bir yer neresi?"
+        },
+        {
+            en: "What's something random you find interesting?",
+            tr: "Rastgele de olsa ilgini çeken bir şey nedir?"
+        },
+        {
+            en: "What's something you wish more people knew about you?",
+            tr: "İnsanların senin hakkında daha fazla bilmesini istediğin bir şey nedir?"
+        },
+        {
+            en: "What's your go‑to way to relax after a long day?",
+            tr: "Uzun bir günün ardından rahatlamak için en sevdiğin yöntem ne?"
+        },
+        {
+            en: "If you could have dinner with anyone, living or dead, who would it be?",
+            tr: "Yaşayan ya da ölmüş biriyle akşam yemeği yiyebilsen, kimi seçerdin?"
+        },
+        {
+            en: "What's something you enjoyed as a kid that you still love today?",
+            tr: "Çocukken sevdiğin ve bugün hâlâ sevdiğin bir şey var mı?"
+        },
+        {
+            en: "What's the most memorable trip you've ever taken?",
+            tr: "Şimdiye kadar yaptığın en unutulmaz seyahat hangisiydi?"
+        },
+        {
+            en: "What's a food you could eat every single day?",
+            tr: "Her gün yiyebileceğin bir yemek ne?"
+        },
+        {
+            en: "What's something you're looking forward to right now?",
+            tr: "Şu anda dört gözle beklediğin bir şey var mı?"
+        },
+        {
+            en: "What's a book, movie, or show that changed the way you think?",
+            tr: "Düşünce tarzını değiştiren bir kitap, film ya da dizi oldu mu?"
+        },
+        {
+            en: "If you could live anywhere in the world, where would you choose?",
+            tr: "Dünyanın herhangi bir yerinde yaşayabilseydin, nereyi seçerdin?"
+        },
+        {
+            en: "What's something you're surprisingly good at?",
+            tr: "Şaşırtıcı derecede iyi olduğun bir şey nedir?"
+        },
+        {
+            en: "What's the best piece of advice you've ever received?",
+            tr: "Şimdiye kadar aldığın en iyi tavsiye neydi?"
+        }
+    ];
+
     // Merge UI keys into LANGS
     LANGS.tr = Object.assign({}, UI_TR, SERVER_EN);
     LANGS.en = Object.assign({}, UI_EN, SERVER_EN);
@@ -205,6 +293,20 @@
 
         return text;
     }
+
+    /**
+     * Get an icebreaker question for the current language.
+     * @param {number} index — 0-19
+     * @returns {string}
+     */
+    t.icebreaker = function (index) {
+        const question = ICEBREAKERS[index];
+        if (!question) {
+            return "";
+        }
+        // Prefer current language, fall back to Turkish
+        return question[currentLang] || question.tr || "";
+    };
 
     /**
      * Translate a client-side UI key.
@@ -261,4 +363,5 @@
     window.t = t;
     window.__LANGS = LANGS;
     window.__SERVER_EN = SERVER_EN;
+    window.__ICEBREAKERS = ICEBREAKERS;
 })();

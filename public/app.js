@@ -637,6 +637,28 @@ socket.on(
             data.startedAt,
             data.duration
         );
+
+        // Show icebreaker — once per match, only at the beginning
+        const question =
+            t.icebreaker(data.icebreaker);
+
+        if (question) {
+            const element =
+                document.createElement("div");
+
+            element.classList.add(
+                "message",
+                "message-icebreaker"
+            );
+
+            element.textContent =
+                "❄️ " + question;
+
+            chat.appendChild(element);
+
+            chat.scrollTop =
+                chat.scrollHeight;
+        }
     }
 );
 

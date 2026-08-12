@@ -283,6 +283,10 @@ function createMatch(
     userA.roomTimer = timer;
     userB.roomTimer = timer;
 
+    // Random icebreaker (0-19)
+    const icebreakerIndex =
+        Math.floor(Math.random() * 20);
+
     io.to(roomId).emit(
         "matched",
         {
@@ -293,7 +297,10 @@ function createMatch(
                 userA.matchStartedAt,
 
             duration:
-                CHAT_DURATION
+                CHAT_DURATION,
+
+            icebreaker:
+                icebreakerIndex
         }
     );
 }
