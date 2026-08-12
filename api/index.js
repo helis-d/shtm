@@ -16,9 +16,10 @@ const io = new Server(httpServer, {
     allowEIO3: true
 });
 
-const CHAT_DURATION = 30_000;
+const CHAT_DURATION = 60_000;
 const MESSAGE_COOLDOWN = 2_000;
 const MAX_MESSAGE_LENGTH = 500;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 let waitingUser = null;
 
@@ -248,7 +249,7 @@ function finishRoom(
         reason === "timeout"
     ) {
         message =
-            "30 saniye doldu.";
+            "60 saniye doldu.";
     }
 
     if (
@@ -302,6 +303,151 @@ io.on(
         socket.typing = false;
 
         queueUser(socket);
+
+        /*
+        |--------------------------------------------------------------------------
+        | IMAGE
+        |--------------------------------------------------------------------------
+        */
+
+        socket.on(
+            "sendImage",
+            data => {
+                if (
+                    !socket.roomId
+                ) {
+                    return;
+                }
+
+                const image =
+                    typeof data?.image ===
+                    "string"
+                        ? data.image.trim()
+                        : "";
+
+                if (!image) {
+                    send(
+                        socket,
+                        "messageError",
+                        {
+                            message:
+                                "Görsel gönderilemedi."
+                        }
+                    );
+
+                    return;
+                }
+
+                const prefix =
+                    "data:";
+
+                if (
+                    !image.startsWith(
+                        prefix
+                    )
+                ) {
+                    send(
+                        socket,
+                        "messageError",
+                        {
+                            message:
+                                "Geçersiz görsel formatı."
+                        }
+                    );
+
+                    return;
+                }
+
+                const base64 =
+                    image.includes(
+                        "base64,"
+                    )
+                        ? image.split(
+                              "base64,"
+                          )[1]
+                        : "";
+
+                if (!base64) {
+                    send(
+                        socket,
+                        "messageError",
+                        {
+                            message:
+                                "Geçersiz görsel verisi."
+                        }
+                    );
+
+                    return;
+                }
+
+                const byteLength =
+                    Buffer.byteLength(
+                        base64,
+                        "base64"
+                    );
+
+                if (
+                    byteLength >
+                    MAX_IMAGE_SIZE
+                ) {
+                    send(
+                        socket,
+                        "messageError",
+                        {
+                            message:
+                                "Görsel 5 MB veya daha küçük olmalı."
+                        }
+                    );
+
+                    return;
+                }
+
+                const now =
+                    Date.now();
+
+                if (
+                    now -
+                    socket.lastMessageAt <
+                    MESSAGE_COOLDOWN
+                ) {
+                    send(
+                        socket,
+                        "messageError",
+                        {
+                            message:
+                                "Biraz yavaş."
+                        }
+                    );
+
+                    return;
+                }
+
+                socket.lastMessageAt =
+                    now;
+
+                socket.typing = false;
+
+                socket
+                    .to(socket.roomId)
+                    .emit(
+                        "typing",
+                        {
+                            active: false
+                        }
+                    );
+
+                socket
+                    .to(socket.roomId)
+                    .emit(
+                        "image",
+                        {
+                            image,
+                            timestamp:
+                                now
+                        }
+                    );
+            }
+        );
 
         /*
         |--------------------------------------------------------------------------

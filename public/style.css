@@ -644,6 +644,50 @@ textarea:focus-visible {
         var(--line);
 }
 
+.composer #imageButton {
+    flex:
+        0 0 auto;
+
+    width: 44px;
+    height: 45px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    background: var(--card-soft);
+
+    color: var(--ink);
+
+    border:
+        1.5px solid
+        var(--line);
+
+    border-radius: 15px;
+
+    font-size: 18px;
+
+    cursor: pointer;
+
+    transition:
+        transform 0.08s ease,
+        box-shadow 0.08s ease,
+        background 0.12s ease;
+}
+
+.composer #imageButton:hover:not(:disabled) {
+    background: #e8e1d6;
+}
+
+.composer #imageButton:active:not(:disabled) {
+    transform:
+        translate(
+            2px,
+            2px
+        );
+}
+
 .composer input {
     flex: 1;
 
@@ -1033,6 +1077,55 @@ footer {
         white !important;
 }
 
+
+/* =========================================================
+   IMAGE MESSAGES
+   ========================================================= */
+
+.message img.message-image {
+    display: block;
+
+    max-width: 200px;
+
+    max-height: 200px;
+
+    width: auto;
+    height: auto;
+
+    border-radius: 12px;
+
+    object-fit: cover;
+}
+
+.message.message-me img.message-image,
+.message.message-other img.message-image {
+    cursor: pointer;
+}
+
+.message.message-me,
+.message.message-other {
+    padding: 6px;
+    background: transparent;
+    border: 0;
+}
+
+.message.message-me img.message-image {
+    border:
+        1.5px solid
+        var(--line);
+
+    box-shadow:
+        3px 3px 0 var(--blue);
+}
+
+.message.message-other img.message-image {
+    border:
+        1.5px solid
+        var(--line);
+
+    box-shadow:
+        3px 3px 0 var(--card-soft);
+}
 
 /* =========================================================
    UTILITY

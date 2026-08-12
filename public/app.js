@@ -37,6 +37,13 @@ const typing =
     document.getElementById("typing");
 
 
+const imageButton =
+    document.getElementById("imageButton");
+
+const imageInput =
+    document.getElementById("imageInput");
+
+
 const reportModal =
     document.getElementById("reportModal");
 
@@ -126,6 +133,9 @@ function setChatState(
         !enabled;
 
     sendButton.disabled =
+        !enabled;
+
+    imageButton.disabled =
         !enabled;
 
     skipButton.disabled =
@@ -272,6 +282,96 @@ function sendMessage() {
 }
 
 
+function sendImage(file) {
+    if (!inChat) {
+        return;
+    }
+
+    const MAX_SIZE =
+        5 * 1024 * 1024;
+
+    if (file.size > MAX_SIZE) {
+        addMessage(
+            "Image must be 5 MB or smaller."
+        );
+
+        return;
+    }
+
+    if (
+        Date.now() - lastSentAt <
+        2000
+    ) {
+        addMessage(
+            "Biraz yavaş :)"
+        );
+
+        return;
+    }
+
+    const reader =
+        new FileReader();
+
+    reader.onload = () => {
+        const base64 =
+            reader.result;
+
+        if (
+            typeof base64 !== "string"
+        ) {
+            return;
+        }
+
+        lastSentAt = Date.now();
+
+        socket.emit(
+            "sendImage",
+            {
+                image: base64
+            }
+        );
+
+        const imgElement =
+            document.createElement(
+                "img"
+            );
+
+        imgElement.src = base64;
+
+        imgElement.alt = "Görsel";
+
+        imgElement.classList.add(
+            "message-image"
+        );
+
+        imgElement.loading =
+            "lazy";
+
+        const wrapper =
+            document.createElement(
+                "div"
+            );
+
+        wrapper.classList.add(
+            "message",
+            "message-me"
+        );
+
+        wrapper.appendChild(
+            imgElement
+        );
+
+        chat.appendChild(
+            wrapper
+        );
+
+        chat.scrollTop =
+            chat.scrollHeight;
+    };
+
+    reader.readAsDataURL(file);
+}
+
 function openReport() {
     reportModal.classList.remove(
         "hidden"
@@ -395,6 +495,58 @@ socket.on(
 
 
 socket.on(
+    "image",
+    data => {
+        if (
+            !data ||
+            typeof data.image !==
+                "string"
+        ) {
+            return;
+        }
+
+        const imgElement =
+            document.createElement(
+                "img"
+            );
+
+        imgElement.src =
+            data.image;
+
+        imgElement.alt = "Görsel";
+
+        imgElement.classList.add(
+            "message-image"
+        );
+
+        imgElement.loading =
+            "lazy";
+
+        const wrapper =
+            document.createElement(
+                "div"
+            );
+
+        wrapper.classList.add(
+            "message",
+            "message-other"
+        );
+
+        wrapper.appendChild(
+            imgElement
+        );
+
+        chat.appendChild(
+            wrapper
+        );
+
+        chat.scrollTop =
+            chat.scrollHeight;
+    }
+);
+
+
+socket.on(
     "messageError",
     data => {
         addMessage(
@@ -416,6 +568,35 @@ socket.on(
             data.active
                 ? "Yabancı yazıyor..."
                 : "";
+    }
+);
+
+
+imageButton.addEventListener(
+    "click",
+    () => {
+        if (!inChat) {
+            return;
+        }
+
+        imageInput.click();
+    }
+);
+
+
+imageInput.addEventListener(
+    "change",
+    () => {
+        const file =
+            imageInput.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        sendImage(file);
+
+        imageInput.value = "";
     }
 );
 
