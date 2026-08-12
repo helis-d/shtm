@@ -1,0 +1,23 @@
+{
+  "name": "shtm",
+  "version": "1.0.0",
+  "description": "SHTM — Say Hello To Me. 30-second anonymous conversations.",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "vercel dev"
+  },
+  "keywords": [
+    "shtm",
+    "chat",
+    "anonymous-chat",
+    "socket.io"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}

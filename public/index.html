@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#f5efe6"
+    >
+
+    <title>SHTM — Say Hello To Me</title>
+
+    <link
+        rel="stylesheet"
+        href="/style.css"
+    >
+</head>
+
+<body>
+
+    <!-- =====================================================
+         BACKGROUND ILLUSTRATIONS
+         ===================================================== -->
+
+    <div class="background-art">
+
+        <div class="art art-cat">
+            <img
+                src="/assets/doodle-cat.svg"
+                alt=""
+            >
+        </div>
+
+        <div class="art art-ghost">
+            <img
+                src="/assets/doodle-ghost.svg"
+                alt=""
+            >
+        </div>
+
+        <div class="art art-planet">
+            <img
+                src="/assets/doodle-planet.svg"
+                alt=""
+            >
+        </div>
+
+        <div class="art art-flower">
+            <img
+                src="/assets/doodle-flower.svg"
+                alt=""
+            >
+        </div>
+
+        <div class="art art-star">
+            <img
+                src="/assets/doodle-star.svg"
+                alt=""
+            >
+        </div>
+
+        <div class="art art-speech">
+            <img
+                src="/assets/doodle-speech.svg"
+                alt=""
+            >
+        </div>
+
+        <span class="spark spark-top-left">✦</span>
+        <span class="spark spark-top-right">✦</span>
+        <span class="spark spark-bottom-left">·</span>
+        <span class="spark spark-bottom-right">✦</span>
+
+    </div>
+
+
+    <!-- =====================================================
+         MAIN
+         ===================================================== -->
+
+    <main class="page">
+
+        <section class="chat-card">
+
+            <!-- HEADER -->
+
+            <header class="chat-header">
+
+                <div class="brand">
+
+                    <h1>SHTM</h1>
+
+                    <span>
+                        Say Hello To Me
+                    </span>
+
+                </div>
+
+
+                <div
+                    id="timer"
+                    class="timer hidden"
+                >
+                </div>
+
+            </header>
+
+
+            <!-- STATUS -->
+
+            <div
+                id="status"
+                class="status searching"
+            >
+                <span class="status-dot"></span>
+
+                <span id="statusText">
+                    Bir yabancı aranıyor...
+                </span>
+            </div>
+
+
+            <!-- CHAT -->
+
+            <section
+                id="chat"
+                class="chat"
+            >
+            </section>
+
+
+            <!-- TYPING -->
+
+            <div
+                id="typing"
+                class="typing"
+            >
+            </div>
+
+
+            <!-- INPUT -->
+
+            <form
+                id="composer"
+                class="composer"
+            >
+
+                <input
+                    id="messageInput"
+                    type="text"
+                    maxlength="500"
+                    autocomplete="off"
+                    placeholder="Bir şey söyle..."
+                    disabled
+                >
+
+                <button
+                    id="sendButton"
+                    type="submit"
+                    disabled
+                    aria-label="Mesaj gönder"
+                >
+                    ↑
+                </button>
+
+            </form>
+
+
+            <!-- CONTROLS -->
+
+            <div class="controls">
+
+                <button
+                    id="skipButton"
+                    type="button"
+                    disabled
+                >
+                    Atla
+                </button>
+
+                <button
+                    id="endButton"
+                    type="button"
+                    disabled
+                >
+                    Bitir
+                </button>
+
+                <button
+                    id="reportButton"
+                    type="button"
+                    disabled
+                >
+                    Raporla
+                </button>
+
+            </div>
+
+
+            <!-- NEW MATCH -->
+
+            <button
+                id="findAgainButton"
+                type="button"
+                class="find-again hidden"
+            >
+                Yeni yabancı bul
+            </button>
+
+
+            <!-- FOOTER -->
+
+            <footer>
+                30 saniye · Bir yabancı · Bir konuşma
+            </footer>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         REPORT MODAL
+         ===================================================== -->
+
+    <div
+        id="reportModal"
+        class="modal hidden"
+    >
+
+        <div class="modal-card">
+
+            <div class="modal-header">
+
+                <div>
+                    <span class="modal-eyebrow">
+                        SHTM
+                    </span>
+
+                    <h2>
+                        Bir sorun mu var?
+                    </h2>
+                </div>
+
+                <button
+                    id="closeReport"
+                    type="button"
+                    class="close-modal"
+                    aria-label="Kapat"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <p class="modal-description">
+                Ne olduğunu kısaca anlat.
+            </p>
+
+
+            <textarea
+                id="reportInput"
+                maxlength="300"
+                placeholder="Spam, taciz, uygunsuz davranış..."
+            ></textarea>
+
+
+            <div class="modal-actions">
+
+                <button
+                    id="cancelReport"
+                    type="button"
+                    class="modal-cancel"
+                >
+                    Vazgeç
+                </button>
+
+                <button
+                    id="submitReport"
+                    type="button"
+                    class="modal-submit"
+                >
+                    Gönder
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         SOCKET.IO
+         ===================================================== -->
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script src="/app.js"></script>
+
+</body>
+</html>
