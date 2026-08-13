@@ -42,6 +42,10 @@ const MESSAGE_COOLDOWN_MS = 2_000;
 
 const IMAGE_UPLOAD_COOLDOWN_MS = 10_000;
 
+const ICEBREAKER_CHANGE_COOLDOWN_MS = 4_000;
+const FEEDBACK_COOLDOWN_MS = 5_000;
+const SHARE_COOLDOWN_MS = 5_000;
+
 const MAX_MESSAGE_LENGTH = 500;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
@@ -67,6 +71,10 @@ const ipConnectionMap = new Map();
 const matchmakingCooldowns = new Map();
 const messageTracker = new Map();
 const imageCooldowns = new Map();
+
+const icebreakerCooldowns = new Map();
+const feedbackCooldowns = new Map();
+const shareCooldowns = new Map();
 
 /* Periodic cleanup — prevent memory leak from stale entries */
 
@@ -96,6 +104,24 @@ setInterval(() => {
     for (const [key, cooldownUntil] of imageCooldowns) {
         if (now > cooldownUntil) {
             imageCooldowns.delete(key);
+        }
+    }
+
+    for (const [key, cooldownUntil] of icebreakerCooldowns) {
+        if (now > cooldownUntil) {
+            icebreakerCooldowns.delete(key);
+        }
+    }
+
+    for (const [key, cooldownUntil] of feedbackCooldowns) {
+        if (now > cooldownUntil) {
+            feedbackCooldowns.delete(key);
+        }
+    }
+
+    for (const [key, cooldownUntil] of shareCooldowns) {
+        if (now > cooldownUntil) {
+            shareCooldowns.delete(key);
         }
     }
 }, CLEANUP_INTERVAL).unref();
@@ -266,6 +292,49 @@ function checkImageUploadRate(socketId) {
     );
 
     return { allowed: true };
+}
+
+/* ---------------------------------------------------------------------------
+   4b. FEATURE-EVENT RATE LIMITERS (icebreaker / feedback / share)
+   ---------------------------------------------------------------------------*/
+
+function cooldownCheck(map, key, now, limitMs, message) {
+    const until = map.get(key);
+
+    if (until && now < until) {
+        const waitSeconds = Math.ceil((until - now) / 1000);
+        return { allowed: false, message: message || `Lütfen ${waitSeconds} saniye bekle.` };
+    }
+
+    map.set(key, now + limitMs);
+    return { allowed: true };
+}
+
+function checkIcebreakerRate(socketId) {
+    return cooldownCheck(
+        icebreakerCooldowns,
+        socketId,
+        Date.now(),
+        ICEBREAKER_CHANGE_COOLDOWN_MS
+    );
+}
+
+function checkFeedbackRate(socketId) {
+    return cooldownCheck(
+        feedbackCooldowns,
+        socketId,
+        Date.now(),
+        FEEDBACK_COOLDOWN_MS
+    );
+}
+
+function checkShareRate(socketId) {
+    return cooldownCheck(
+        shareCooldowns,
+        socketId,
+        Date.now(),
+        SHARE_COOLDOWN_MS
+    );
 }
 
 /* ---------------------------------------------------------------------------
@@ -545,6 +614,9 @@ module.exports = {
     checkMatchmakingRate,
     checkMessageRate,
     checkImageUploadRate,
+    checkIcebreakerRate,
+    checkFeedbackRate,
+    checkShareRate,
 
     // Validation
     validateImagePayload,

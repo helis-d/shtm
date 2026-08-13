@@ -1285,6 +1285,200 @@ footer {
 }
 
 /* =========================================================
+   ONLINE COUNT
+   ========================================================= */
+
+.online-count {
+    margin-left: 2px;
+
+    color: var(--muted);
+
+    font-size: 11px;
+
+    white-space: nowrap;
+}
+
+/* =========================================================
+   INTEREST PICKER
+   ========================================================= */
+
+.interest-picker {
+    padding:
+        10px 14px 12px;
+}
+
+.interest-picker-title {
+    margin:
+        0 0 10px;
+
+    color: var(--ink);
+
+    font-size: 13px;
+
+    font-weight: 900;
+
+    letter-spacing: -0.02em;
+}
+
+.interest-chips {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    margin-bottom: 12px;
+}
+
+.interest-chip {
+    padding:
+        6px 11px;
+
+    background: var(--card-soft);
+
+    color: var(--ink);
+
+    border:
+        1.5px solid
+        var(--line);
+
+    border-radius: 999px;
+
+    font-size: 12px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.12s ease,
+        transform 0.08s ease;
+}
+
+.interest-chip:focus-visible {
+    outline: 3px solid rgba(255, 113, 95, 0.35);
+    outline-offset: 2px;
+}
+
+.interest-chip.selected {
+    background: var(--blue);
+}
+
+.interest-actions {
+    display: flex;
+
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 8px;
+}
+
+.interest-skip,
+.interest-save {
+    padding: 7px 13px;
+
+    border:
+        1.5px solid
+        var(--line);
+
+    border-radius: 12px;
+
+    background: white;
+
+    color: var(--ink);
+
+    font-size: 12px;
+
+    font-weight: 900;
+
+    cursor: pointer;
+}
+
+.interest-save {
+    background: var(--green);
+}
+
+.interest-skip,
+.interest-save:active {
+    transform:
+        translate(
+            1px,
+            1px
+        );
+}
+
+/* =========================================================
+   MATCH INTRO CARD
+   ========================================================= */
+
+.intro-card {
+    padding:
+        10px 14px 14px;
+}
+
+.intro-world {
+    margin: 0 0 10px;
+
+    color: var(--muted);
+
+    font-size: 12px;
+
+    text-align: center;
+}
+
+.intro-profile {
+    display: flex;
+
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+}
+
+.intro-tag {
+    padding: 5px 10px;
+
+    background: var(--card-soft);
+
+    border:
+        1.5px solid
+        var(--line);
+
+    border-radius: 999px;
+
+    font-size: 11px;
+}
+
+.shared-interests {
+    margin-top: 10px;
+
+    color: var(--green);
+
+    font-size: 12px;
+
+    text-align: center;
+}
+
+.icebreaker-next {
+    display: block;
+
+    margin: 10px auto 0;
+
+    padding: 6px 12px;
+
+    background: transparent;
+
+    color: var(--muted);
+
+    border: 1.5px solid var(--line);
+
+    border-radius: 999px;
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+/* =========================================================
    UTILITY
    ========================================================= */
 

@@ -16,6 +16,7 @@ no persistent DB.
 - **Security** — `api/security.js`: in-memory rate limiters + payload/MIME validation.
 - **Analytics** — `api/analytics.js`: anonymous aggregate stats for `/api/stats`.
 - **Growth** — `lib/growth.js`: funnel, cohorts, traffic, density, experiments for `/api/growth`.
+- **Features** — `lib/features.js`: interests, icebreakers, feedback, flags, match helpers.
 - **Logger** — `api/logger.js`: structured JSON log + lifecycle/disconnect enums.
 - **Runtime** — Vercel serverless (single instance) or local `npm start`.
 
@@ -96,11 +97,18 @@ Tests are behavior-focused: `test/analytics.test.js`, `test/logger.test.js`,
 - A two-participant event (match/conversation) is counted once globally and
   once per shared cohort dimension — see `docs/context/GROWTH.md`.
 - Never fabricate density (no fake users/online counts/matches).
+- Feature flags (`SHTM_*_ENABLED`) are additive and default-on; disabling one
+  must revert to the legacy safe path and never break matching/analytics.
+- Interest-based matchmaking is a ranking signal, never a hard filter; a user
+  with zero interests must still be able to match.
+- New socket events must respect lifecycle state (e.g. `conversation:feedback`
+  only after termination, `icebreaker:next` only during an active room).
 
 ## Context files (durable, AI-readable)
 
 `docs/context/SYSTEM.md`, `ARCHITECTURE.md`, `SOCKETS.md`, `MATCHMAKING.md`,
 `DATA_MODEL.md`, `SECURITY.md`, `OBSERVABILITY.md`, `DEPLOYMENT.md`,
 `FAILURE_MODES.md`, `DECISIONS.md`, `GLOSSARY.md`, `CHANGELOG.md`, `GROWTH.md`,
-`TRAFFIC.md`, `EXPERIMENTS.md`, `NETWORK_DENSITY.md`, and the generated
-`current-state.json`.
+`TRAFFIC.md`, `EXPERIMENTS.md`, `NETWORK_DENSITY.md`, `FEATURES.md`,
+`UX_FLOWS.md`, `CONVERSATIONS.md`, `INTERESTS.md`, `RETENTION.md`, and the
+generated `current-state.json`.

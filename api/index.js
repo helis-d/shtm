@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 const sec = require("./security");
 const anl = require("./analytics");
 const growth = require("../lib/growth");
+const feat = require("../lib/features");
 const log = require("./logger");
 
 const app = express();
@@ -169,6 +170,13 @@ app.get("/api/growth", (req, res) => {
     sendStats(req, res, () => growth.getStats(), "/api/growth");
 });
 
+app.get("/api/features", (req, res) => {
+    res.json({
+        interests: feat.INTEREST_LIST,
+        flags: feat.FLAGS
+    });
+});
+
 /*
 |--------------------------------------------------------------------------
 | HELPERS
@@ -296,6 +304,13 @@ function clearRecordTimer(record) {
     if (record && record.timer) {
         clearTimeout(record.timer);
         record.timer = null;
+    }
+
+    if (record && Array.isArray(record.milestoneTimers)) {
+        for (const t of record.milestoneTimers) {
+            clearTimeout(t);
+        }
+        record.milestoneTimers = [];
     }
 }
 
@@ -453,6 +468,12 @@ function createMatch(userA, userB) {
 
     const roomId = `room_${crypto.randomUUID()}`;
 
+    const shared = feat.sharedInterests(userA.interests, userB.interests);
+    const compatibility = feat.compatibilityScore(
+        { interests: userA.interests, language: userA.language },
+        { interests: userB.interests, language: userB.language }
+    );
+
     const record = {
         matchId: roomId,
         roomId,
@@ -460,7 +481,10 @@ function createMatch(userA, userB) {
         userB,
         startedAt: Date.now(),
         state: "active",
-        timer: null
+        timer: null,
+        milestoneTimers: [],
+        sharedInterests: shared,
+        compatibility
     };
 
     record.timer = setTimeout(() => {
@@ -469,6 +493,23 @@ function createMatch(userA, userB) {
 
     if (record.timer.unref) {
         record.timer.unref();
+    }
+
+    for (const milestone of feat.MILESTONES) {
+        if (milestone.atMs >= CHAT_DURATION) continue;
+
+        const timer = setTimeout(() => {
+            if (getRoomRecord(roomId) === record) {
+                growth.trackProductEvent("conversation_milestone", ctxA || ctxB);
+                io.to(roomId).emit("conversation:milestone", {
+                    level: milestone.level,
+                    atMs: milestone.atMs
+                });
+            }
+        }, milestone.atMs);
+
+        if (timer.unref) timer.unref();
+        record.milestoneTimers.push(timer);
     }
 
     rooms.set(roomId, record);
@@ -491,20 +532,72 @@ function createMatch(userA, userB) {
     userA.connectionState = STATE.MATCHED;
     userB.connectionState = STATE.MATCHED;
 
-    const icebreakerIndex = Math.floor(Math.random() * 20);
+    userA.conversationCount = (userA.conversationCount || 0) + 1;
+    userB.conversationCount = (userB.conversationCount || 0) + 1;
+
+    // Isolate feedback + icebreaker state per conversation.
+    userA._feedbackSubmitted = false;
+    userB._feedbackSubmitted = false;
+    userA._lastIcebreakerId = null;
+    userB._lastIcebreakerId = null;
+
+    // Anonymous, coarse intro (country + language + interests). No PII.
+    const introA = feat.buildIntroProfile(userA);
+    const introB = feat.buildIntroProfile(userB);
+
+    const seed = Date.now() % 100000;
+
+    const icebreaker = feat.pickInitialIcebreaker({
+        shared,
+        selected: userA.interests,
+        seed
+    });
 
     log.info("match_created", {
         matchId: roomId,
         socketA: userA.id,
-        socketB: userB.id
+        socketB: userB.id,
+        sharedInterestsCount: shared.length,
+        compatibility
     });
 
+    // Backward-compatible matched event (English/TR handled client-side).
     io.to(roomId).emit("matched", {
         message: "Bir yabancıyla eşleştin.",
         startedAt: record.startedAt,
         duration: CHAT_DURATION,
-        icebreaker: icebreakerIndex
+        icebreaker: 0
     });
+
+    // Per-user anonymous intro card. Each user sees the partner's coarse
+    // profile plus the shared interests, never the partner's private state.
+    send(userA, "match:intro", {
+        you: introA,
+        partner: introB,
+        sharedInterests: shared
+    });
+
+    send(userB, "match:intro", {
+        you: introB,
+        partner: introA,
+        sharedInterests: shared
+    });
+
+    if (shared.length > 0) {
+        io.to(roomId).emit("match:shared-interests", {
+            interests: shared.slice(0, 3)
+        });
+
+        growth.trackProductEvent("shared_interest_shown", ctxA || ctxB);
+    }
+
+    if (icebreaker) {
+        io.to(roomId).emit("conversation:icebreaker", icebreaker);
+        growth.trackProductEvent("icebreaker_shown", ctxA || ctxB);
+    }
+
+    growth.trackProductEvent("match_card_viewed", ctxA);
+    growth.trackProductEvent("match_card_viewed", ctxB);
 }
 
 /**
@@ -561,6 +654,14 @@ function finishRoom(roomId, reason = "manual") {
     // Give participants a path to re-enter matchmaking after a clean end.
     send(record.userA, "readyForNewMatch");
     send(record.userB, "readyForNewMatch");
+
+    // Coarse session depth (no internal IDs exposed).
+    send(record.userA, "session:summary", {
+        conversations: record.userA.conversationCount || 0
+    });
+    send(record.userB, "session:summary", {
+        conversations: record.userB.conversationCount || 0
+    });
 }
 
 /*
@@ -580,7 +681,10 @@ io.on("connection", (socket) => {
     growthCtx.variant = experiment.variant;
     socket.growthCtx = growthCtx;
 
-    growth.registerVisitor(growthCtx.visitorId);
+    const visit = growth.registerVisitor(growthCtx.visitorId);
+    if (visit && visit.returning) {
+        growth.trackProductEvent("return_session", growthCtx);
+    }
 
     growth.trackConnectionAttempt(growthCtx);
 
@@ -632,6 +736,14 @@ io.on("connection", (socket) => {
     socket.lastMessageAt = 0;
     socket.lastTypingAt = 0;
     socket.typing = false;
+
+    // Feature-wave per-socket state (server-authoritative).
+    socket.interests = [];
+    socket.language = growthCtx.language || null;
+    socket.country = growthCtx.country || null;
+    socket.conversationCount = 0;
+    socket._feedbackSubmitted = false;
+    socket._lastIcebreakerId = null;
 
     sec.incrementMetric("activeSessions");
 
@@ -927,6 +1039,136 @@ io.on("connection", (socket) => {
         queueUser(socket);
     });
 
+    socket.on("queue:next", () => {
+        if (socket.roomId) {
+            send(socket, "messageError", {
+                message: "Sohbet devam ediyor."
+            });
+            return;
+        }
+
+        growth.trackProductEvent("next_match_clicked", socket.growthCtx || {});
+        queueUser(socket);
+    });
+
+    /*
+    |----------------------------------------------------------------------
+    | INTERESTS
+    |----------------------------------------------------------------------
+    */
+
+    socket.on("interests:set", (data) => {
+        if (!feat.isEnabled("interests")) {
+            send(socket, "interests:set", { interests: [] });
+            return;
+        }
+
+        const result = feat.normalizeInterests(
+            data && (Array.isArray(data) ? data : data.interests)
+        );
+
+        if (!result.valid) {
+            send(socket, "messageError", {
+                message: result.message
+            });
+            return;
+        }
+
+        socket.interests = result.interests;
+
+        if (result.interests.length === 0) {
+            growth.trackProductEvent("interest_skipped", socket.growthCtx || {});
+        } else {
+            growth.trackProductEvent("interest_selected", socket.growthCtx || {});
+        }
+
+        send(socket, "interests:set", {
+            interests: result.interests
+        });
+    });
+
+    /*
+    |----------------------------------------------------------------------
+    | ICEBREAKER ROTATION
+    |----------------------------------------------------------------------
+    */
+
+    socket.on("icebreaker:next", () => {
+        if (!socket.roomId || !feat.isEnabled("icebreakers")) {
+            return;
+        }
+
+        const check = sec.checkIcebreakerRate(socket.id);
+        if (!check.allowed) {
+            send(socket, "messageError", { message: check.message });
+            return;
+        }
+
+        const next = feat.rotateIcebreaker(socket._lastIcebreakerId, Date.now() % 1000);
+        socket._lastIcebreakerId = next ? next.id : socket._lastIcebreakerId;
+
+        send(socket, "conversation:icebreaker", next);
+        growth.trackProductEvent("icebreaker_changed", socket.growthCtx || {});
+    });
+
+    /*
+    |----------------------------------------------------------------------
+    | CONVERSATION FEEDBACK (only valid after termination)
+    |----------------------------------------------------------------------
+    */
+
+    socket.on("conversation:feedback", (data) => {
+        if (socket.roomId) {
+            return; // must only happen after room termination
+        }
+
+        const rating =
+            typeof data?.rating === "string" ? data.rating : "";
+
+        if (!feat.FEEDBACK_OPTIONS[rating]) {
+            send(socket, "messageError", { message: "Geçersiz geri bildirim." });
+            return;
+        }
+
+        if (socket._feedbackSubmitted) {
+            return; // isolate feedback per match
+        }
+
+        const check = sec.checkFeedbackRate(socket.id);
+        if (!check.allowed) {
+            send(socket, "messageError", { message: check.message });
+            return;
+        }
+
+        socket._feedbackSubmitted = true;
+        growth.trackProductEvent("conversation_feedback", socket.growthCtx || {});
+        growth.trackProductEvent("session_conversation_completed", socket.growthCtx || {});
+
+        send(socket, "conversation:ended", { accepted: true });
+
+        // Positive feedback optionally triggers a share prompt (never forced).
+        if (rating === "good") {
+            growth.trackProductEvent("share_prompt_shown", socket.growthCtx || {});
+            send(socket, "share:prompt", { visible: true });
+        }
+    });
+
+    /*
+    |----------------------------------------------------------------------
+    | SHARE
+    |----------------------------------------------------------------------
+    */
+
+    socket.on("share:clicked", () => {
+        const check = sec.checkShareRate(socket.id);
+        if (!check.allowed) {
+            send(socket, "messageError", { message: check.message });
+            return;
+        }
+
+        growth.trackProductEvent("share_clicked", socket.growthCtx || {});
+    });
+
     /*
     |----------------------------------------------------------------------
     | REPORT
@@ -1145,6 +1387,34 @@ growth.setSnapshotProvider(() => {
 
 growth.takeSnapshot();
 growth.startSnapshots(30_000);
+
+/*
+|--------------------------------------------------------------------------
+| PRESENCE (people online)
+|--------------------------------------------------------------------------
+| Broadcast real aggregate eligibility only. Never fabricate counts. Small
+| cohorts are simply <3 by platform convention, not exposed precisely.
+|--------------------------------------------------------------------------
+*/
+
+let presenceTimer = null;
+
+function broadcastPresence() {
+    if (feat.isEnabled("onlineCount")) {
+        const snap = growth.getStats().networkDensity;
+        const eligible = (snap && snap.current && snap.current.eligible) || 0;
+
+        io.emit("presence", {
+            eligible,
+            connected: (snap && snap.current && snap.current.connected) || 0,
+            waiting: (snap && snap.current && snap.current.waiting) || 0
+        });
+    }
+}
+
+presenceTimer = setInterval(broadcastPresence, 15_000);
+if (presenceTimer.unref) presenceTimer.unref();
+broadcastPresence();
 
 /*
 |--------------------------------------------------------------------------

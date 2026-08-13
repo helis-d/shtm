@@ -33,8 +33,26 @@
 | `typing` | C→S | `boolean` | Typing indicator (rate-limited 300ms). |
 | `skip` | C→S | — | Skip current partner. |
 | `endChat` | C→S | — | End current room. |
-| `findAgain` | C→S | — | Re-enter matchmaking. |
+| `findAgain` | C→S | — | Re-enter matchmaking (legacy). |
+| `queue:next` | C→S | — | Next match (tracked `next_match_clicked`). |
+| `interests:set` | C→S | array of ids | Set validated interests. |
+| `icebreaker:next` | C→S | — | Rotate icebreaker (rate-limited 4s). |
+| `conversation:feedback` | C→S | `{ rating }` | Post-term feedback (Good/Okay/Not great). |
+| `share:clicked` | C→S | — | Share click (rate-limited 5s). |
 | `report` | C→S | `{ reason }` | Report partner (max 300 chars). |
+
+## Server → client additions (Feature Wave v1)
+
+| Event | Payload | Meaning |
+|-------|---------|---------|
+| `match:intro` | `{ you, partner, sharedInterests }` | Anonymous coarse intro card. |
+| `match:shared-interests` | `{ interests }` | Shared interest discovery (top 1-3). |
+| `conversation:icebreaker` | `{ id, text, category }` | Curated conversation starter. |
+| `conversation:milestone` | `{ level, atMs }` | Subtle milestone signal. |
+| `conversation:ended` | `{ accepted }` | Feedback accepted. |
+| `session:summary` | `{ conversations }` | Coarse session depth (no IDs). |
+| `presence` | `{ eligible, connected, waiting }` | Real aggregate presence. |
+| `share:prompt` | `{ visible }` | Optional share prompt after good feedback. |
 
 ## Client Socket.IO built-in events
 

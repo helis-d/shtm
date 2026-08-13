@@ -135,6 +135,57 @@ function extractGrowthExperiments(growthSource) {
     return [...new Set(ids)].sort();
 }
 
+/**
+ * Extract product-event stage names from lib/growth.js `PRODUCT_STAGES`.
+ */
+function extractProductStages(growthSource) {
+    if (!growthSource) return [];
+    const block = /PRODUCT_STAGES\s*=\s*\[([\s\S]*?)\];/.exec(growthSource);
+    if (!block) return [];
+
+    const stages = [];
+    const valueRe = /"([a-z_]+)"/g;
+    let m;
+    while ((m = valueRe.exec(block[1])) !== null) {
+        stages.push(m[1]);
+    }
+    return stages;
+}
+
+/**
+ * Extract interest ids from lib/features.js `INTEREST_LIST`.
+ */
+function extractInterestIds(featuresSource) {
+    if (!featuresSource) return [];
+    const block = /INTEREST_LIST\s*=\s*\[([\s\S]*?)\];/.exec(featuresSource);
+    if (!block) return [];
+
+    const ids = [];
+    const valueRe = /id:\s*"([a-z_]+)"/g;
+    let m;
+    while ((m = valueRe.exec(block[1])) !== null) {
+        ids.push(m[1]);
+    }
+    return ids;
+}
+
+/**
+ * Extract feature flag names from lib/features.js `FLAGS`.
+ */
+function extractFeatureFlags(featuresSource) {
+    if (!featuresSource) return [];
+    const block = /FLAGS\s*=\s*\{([\s\S]*?)\n\};/.exec(featuresSource);
+    if (!block) return [];
+
+    const flags = [];
+    const valueRe = /\n\s*([a-zA-Z]+):/g;
+    let m;
+    while ((m = valueRe.exec(block[1])) !== null) {
+        flags.push(m[1]);
+    }
+    return flags;
+}
+
 module.exports = {
     ROOT,
     readIfExists,
@@ -145,5 +196,8 @@ module.exports = {
     extractSocketStates,
     extractDisconnectReasons,
     extractFunnelStages,
-    extractGrowthExperiments
+    extractGrowthExperiments,
+    extractProductStages,
+    extractInterestIds,
+    extractFeatureFlags
 };

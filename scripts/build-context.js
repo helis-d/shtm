@@ -26,6 +26,7 @@ const loggerSource = introspect.readIfExists("api/logger.js");
 const securitySource = introspect.readIfExists("api/security.js");
 const analyticsSource = introspect.readIfExists("api/analytics.js");
 const growthSource = introspect.readIfExists("lib/growth.js");
+const featuresSource = introspect.readIfExists("lib/features.js");
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +41,7 @@ const criticalFiles = {
     "api/index.js": "HTTP + Socket.IO server, lifecycle, matchmaking, routing",
     "api/security.js": "rate limiting, payload/MIME validation, metrics",
     "api/analytics.js": "aggregate metrics and /api/stats response",
+    "lib/features.js": "interests, icebreakers, feedback, flags, match helpers",
     "lib/growth.js": "growth funnel, cohorts, traffic, density, experiments",
     "api/logger.js": "structured logger, enums, disconnect forensics",
     "public/app.js": "client socket wiring and connection UX",
@@ -140,6 +142,37 @@ const manifest = {
 
     trafficSources: {},
 
+    features: {
+        interests: introspect.extractInterestIds(featuresSource),
+        flags: introspect.extractFeatureFlags(featuresSource)
+    },
+
+    uxFlows: {
+        loop: [
+            "discover",
+            "connect",
+            "personalize",
+            "match",
+            "break_the_ice",
+            "talk",
+            "rate",
+            "next_match",
+            "return",
+            "invite",
+            "repeat"
+        ]
+    },
+
+    conversationModel: {
+        durationMs: 60000,
+        milestones: [30000, 120000, 300000, 600000],
+        feedback: ["good", "okay", "not_great"]
+    },
+
+    retention: {
+        visitorToken: "localStorage shtm_vid (random, non-identifying)"
+    },
+
     experiments: {
         definitions: introspect.extractGrowthExperiments(growthSource),
         eventWindow: "SHTM_AU_WINDOW + SHTM_AU_WINDOW_ENABLED env"
@@ -152,7 +185,8 @@ const manifest = {
     },
 
     funnel: {
-        stages: introspect.extractFunnelStages(growthSource)
+        stages: introspect.extractFunnelStages(growthSource),
+        productEvents: introspect.extractProductStages(growthSource)
     },
 
     security: {

@@ -1,6 +1,6 @@
 {
   "project": "SHTM",
-  "generatedAt": "2026-08-13T12:43:27.874Z",
+  "generatedAt": "2026-08-13T16:40:46.424Z",
   "generator": "scripts/build-context.js",
   "architecture": {
     "frontend": "vanilla JS + HTML + CSS in public/",
@@ -16,25 +16,38 @@
   },
   "realtime": {
     "serverEvents": [
+      "conversation:ended",
+      "conversation:icebreaker",
+      "conversation:milestone",
       "image",
+      "interests:set",
+      "match:intro",
+      "match:shared-interests",
       "matched",
       "message",
       "messageError",
       "partnerLeft",
+      "presence",
       "readyForNewMatch",
       "reportError",
       "reportSent",
       "roomEnded",
       "searching",
+      "share:prompt",
       "skipped",
       "typing"
     ],
     "clientEvents": [
+      "conversation:feedback",
       "endChat",
       "findAgain",
+      "icebreaker:next",
+      "interests:set",
+      "queue:next",
       "report",
       "sendImage",
       "sendMessage",
+      "share:clicked",
       "skip",
       "system:pong",
       "typing"
@@ -86,25 +99,38 @@
   },
   "events": {
     "serverToClient": [
+      "conversation:ended",
+      "conversation:icebreaker",
+      "conversation:milestone",
       "image",
+      "interests:set",
+      "match:intro",
+      "match:shared-interests",
       "matched",
       "message",
       "messageError",
       "partnerLeft",
+      "presence",
       "readyForNewMatch",
       "reportError",
       "reportSent",
       "roomEnded",
       "searching",
+      "share:prompt",
       "skipped",
       "typing"
     ],
     "clientToServer": [
+      "conversation:feedback",
       "endChat",
       "findAgain",
+      "icebreaker:next",
+      "interests:set",
+      "queue:next",
       "report",
       "sendImage",
       "sendMessage",
+      "share:clicked",
       "skip",
       "system:pong",
       "typing"
@@ -147,6 +173,63 @@
   },
   "growth": {},
   "trafficSources": {},
+  "features": {
+    "interests": [
+      "gaming",
+      "music",
+      "movies",
+      "technology",
+      "sports",
+      "travel",
+      "anime",
+      "art",
+      "science",
+      "fashion",
+      "books",
+      "food",
+      "memes",
+      "coding",
+      "photography"
+    ],
+    "flags": [
+      "interests",
+      "icebreakers",
+      "nextMatch",
+      "onlineCount"
+    ]
+  },
+  "uxFlows": {
+    "loop": [
+      "discover",
+      "connect",
+      "personalize",
+      "match",
+      "break_the_ice",
+      "talk",
+      "rate",
+      "next_match",
+      "return",
+      "invite",
+      "repeat"
+    ]
+  },
+  "conversationModel": {
+    "durationMs": 60000,
+    "milestones": [
+      30000,
+      120000,
+      300000,
+      600000
+    ],
+    "feedback": [
+      "good",
+      "okay",
+      "not_great"
+    ]
+  },
+  "retention": {
+    "visitorToken": "localStorage shtm_vid (random, non-identifying)"
+  },
   "experiments": {
     "definitions": [
       "au-density-001"
@@ -174,6 +257,21 @@
       "conversation_started",
       "conversation_message",
       "conversation_ended"
+    ],
+    "productEvents": [
+      "interest_selected",
+      "interest_skipped",
+      "match_card_viewed",
+      "shared_interest_shown",
+      "icebreaker_shown",
+      "icebreaker_changed",
+      "conversation_milestone",
+      "conversation_feedback",
+      "next_match_clicked",
+      "share_prompt_shown",
+      "share_clicked",
+      "session_conversation_completed",
+      "return_session"
     ]
   },
   "security": {
@@ -241,6 +339,7 @@
       "api/index.js",
       "api/security.js",
       "api/analytics.js",
+      "lib/features.js",
       "lib/growth.js",
       "api/logger.js",
       "public/app.js",
@@ -255,6 +354,7 @@
       "api/index.js": "HTTP + Socket.IO server, lifecycle, matchmaking, routing",
       "api/security.js": "rate limiting, payload/MIME validation, metrics",
       "api/analytics.js": "aggregate metrics and /api/stats response",
+      "lib/features.js": "interests, icebreakers, feedback, flags, match helpers",
       "lib/growth.js": "growth funnel, cohorts, traffic, density, experiments",
       "api/logger.js": "structured logger, enums, disconnect forensics",
       "public/app.js": "client socket wiring and connection UX",

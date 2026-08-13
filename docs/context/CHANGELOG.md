@@ -1,5 +1,34 @@
 # SHTM — Changelog
 
+## 2026-08-13 — Feature Wave v1 (Interests + Icebreakers + Feedback)
+
+### What changed
+
+- Added `lib/features.js`: interest data model, safe icebreakers, feedback
+  options, conversation milestones, match compatibility, and feature flags.
+- Added interest selection (min 0 / max 5 / skippable) with server-side
+  validation (`interests:set`).
+- Added interest-aware matchmaking as a **ranking signal only** (never a hard
+  filter); language is a soft tie-breaker; queue age prevents starvation.
+- Added anonymous `match:intro` card and `match:shared-interests` discovery.
+- Added contextual icebreaker selection (shared → selected → universal) and
+  rate-limited rotation (`icebreaker:next`).
+- Added conversation milestones (`conversation:milestone`) and quality feedback
+  (`conversation:feedback`) valid only after termination.
+- Added `queue:next` for a clean Next Match flow with isolated feedback state.
+- Added real presence (`presence` event) from live eligible-concurrency only.
+- Added `/api/features` and a product-event telemetry set in `lib/growth.js`.
+- Added `docs/context/FEATURES.md`, `UX_FLOWS.md`, `CONVERSATIONS.md`,
+  `INTERESTS.md`, `RETENTION.md`, and regenerated `current-state.json`.
+
+### Decisions / guardrails
+
+- No accounts, public profiles, or reputation systems.
+- No fake counts; presence uses real eligible users.
+- All new payloads are validated server-side and rate-limited.
+
+---
+
 ## 2026-08-13 — Growth Context Engineering + Network Density
 
 ### What changed

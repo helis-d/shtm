@@ -34,6 +34,18 @@ Room termination (`finishRoom(roomId, reason)`) is the single cleanup path:
 - Timer ownership duplicated on both sockets can lead to double-cleanup races.
 - No disconnect-during-match-creation handling.
 
+## Interest-aware ranking (Feature Wave v1)
+
+Interests and language are **ranking signals**, never hard filters:
+
+- shared interest → higher priority
+- some overlap → medium priority
+- no overlap → still eligible
+- language match → soft preference
+- queue age → prevents starvation
+
+`compatibilityScore` (0-100) is informational (logged), not a rejection gate.
+
 ## Target state machine (see `DECISIONS.md`)
 
 WAITING → MATCHED → ACTIVE → ENDED/EXPIRED, with CANCELLED on disconnect.

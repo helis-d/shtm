@@ -115,6 +115,12 @@ const socket = io({
     }
 });
 
+// Feature flags + interest catalog fetched once at startup.
+const feature = { interests: true, icebreakers: true, nextMatch: true, onlineCount: true };
+let interestCatalog = [];
+let eligibleCount = 0;
+let selectedInterests = [];
+
 
 const chat =
     document.getElementById("chat");
@@ -195,6 +201,34 @@ const footer =
 
 const msgInput =
     document.getElementById("messageInput");
+
+
+const interestPicker =
+    document.getElementById("interestPicker");
+
+const interestChips =
+    document.getElementById("interestChips");
+
+const interestSkip =
+    document.getElementById("interestSkip");
+
+const interestSave =
+    document.getElementById("interestSave");
+
+const introCard =
+    document.getElementById("introCard");
+
+const introProfile =
+    document.getElementById("introProfile");
+
+const sharedInterests =
+    document.getElementById("sharedInterests");
+
+const icebreakerNext =
+    document.getElementById("icebreakerNext");
+
+const onlineCount =
+    document.getElementById("onlineCount");
 
 
 let inChat = false;
@@ -828,28 +862,6 @@ socket.on(
             data.startedAt,
             data.duration
         );
-
-        // Show icebreaker — once per match, only at the beginning
-        const question =
-            t.icebreaker(data.icebreaker);
-
-        if (question) {
-            const element =
-                document.createElement("div");
-
-            element.classList.add(
-                "message",
-                "message-icebreaker"
-            );
-
-            element.textContent =
-                "❄️ " + question;
-
-            chat.appendChild(element);
-
-            chat.scrollTop =
-                chat.scrollHeight;
-        }
     }
 );
 
@@ -1158,7 +1170,7 @@ findAgainButton.addEventListener(
         );
 
         socket.emit(
-            "findAgain"
+            "queue:next"
         );
     }
 );
@@ -1288,6 +1300,247 @@ shareButton.addEventListener("click", async () => {
     }
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| FEATURE WAVE UI
+|--------------------------------------------------------------------------
+*/
+
+const MAX_INTERESTS = 5;
+
+function renderInterestChips() {
+    interestChips.innerHTML = "";
+
+    for (const interest of interestCatalog) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "interest-chip";
+        chip.textContent = interest.label;
+        chip.setAttribute("role", "checkbox");
+        chip.setAttribute("aria-checked", "false");
+        chip.dataset.id = interest.id;
+
+        chip.addEventListener("click", () => {
+            if (chip.classList.contains("selected")) {
+                chip.classList.remove("selected");
+                chip.setAttribute("aria-checked", "false");
+                selectedInterests = selectedInterests.filter(
+                    (id) => id !== interest.id
+                );
+            } else if (selectedInterests.length < MAX_INTERESTS) {
+                chip.classList.add("selected");
+                chip.setAttribute("aria-checked", "true");
+                selectedInterests.push(interest.id);
+            }
+        });
+
+        interestChips.appendChild(chip);
+    }
+}
+
+function showInterestPicker() {
+    if (!feature.interests) return;
+    interestPicker.classList.remove("hidden");
+    renderInterestChips();
+}
+
+function hideInterestPicker() {
+    interestPicker.classList.add("hidden");
+}
+
+function submitInterests(interests) {
+    selectedInterests = interests;
+    socket.emit("interests:set", interests);
+    hideInterestPicker();
+}
+
+interestSkip.addEventListener("click", () => {
+    submitInterests([]);
+});
+
+interestSave.addEventListener("click", () => {
+    submitInterests(selectedInterests.slice());
+});
+
+function countryFlag(code) {
+    if (!code) return "🌍";
+    const base = 0x1f1e6;
+    const cc = code.toUpperCase();
+    if (!/^[A-Z]{2}$/.test(cc)) return "🌍";
+    const cp = cc
+        .split("")
+        .map((c) => base + (c.charCodeAt(0) - 65));
+    return String.fromCodePoint(...cp);
+}
+
+function renderIntro(data) {
+    introCard.classList.remove("hidden");
+
+    const partner = data.partner || {};
+    const tags = [];
+
+    if (partner.country) {
+        tags.push(countryFlag(partner.country) + " " + (partner.country || ""));
+    }
+    if (partner.language) {
+        tags.push(partner.language);
+    }
+    for (const id of partner.interests || []) {
+        const match = interestCatalog.find((i) => i.id === id);
+        if (match) tags.push(match.label);
+    }
+
+    introProfile.innerHTML = tags
+        .slice(0, 8)
+        .map((t) => '<span class="intro-tag">' + escapeHtml(t) + "</span>")
+        .join("");
+
+    const shared = data.sharedInterests || [];
+    if (shared.length > 0) {
+        const labels = shared
+            .slice(0, 3)
+            .map((id) => {
+                const m = interestCatalog.find((i) => i.id === id);
+                return m ? m.label : id;
+            })
+            .join(", ");
+        sharedInterests.textContent = "You both like " + labels + ".";
+        sharedInterests.classList.remove("hidden");
+    } else {
+        sharedInterests.classList.add("hidden");
+    }
+}
+
+function hideIntroCard() {
+    introCard.classList.add("hidden");
+    icebreakerNext.classList.add("hidden");
+}
+
+function showIcebreaker(q) {
+    if (!q) return;
+    icebreakerNext.classList.remove("hidden");
+    const el = document.createElement("div");
+    el.classList.add("message", "message-icebreaker");
+    el.textContent = "❄️ " + q.text;
+    chat.appendChild(el);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = String(str == null ? "" : str);
+    return div.innerHTML;
+}
+
+function showFeedback() {
+    // Minimal inline feedback injected into the chat area after a conversation.
+    const wrap = document.createElement("div");
+    const label = document.createElement("div");
+    label.className = "message message-system";
+    label.textContent = "How was the conversation?";
+    wrap.appendChild(label);
+
+    for (const [key, text] of Object.entries({ good: "Good", okay: "Okay", not_great: "Not great" })) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "interest-chip";
+        btn.textContent = text;
+        btn.addEventListener("click", () => {
+            socket.emit("conversation:feedback", { rating: key });
+            wrap.remove();
+        });
+        wrap.appendChild(btn);
+    }
+
+    chat.appendChild(wrap);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function updateOnlineCount() {
+    if (!feature.onlineCount) {
+        onlineCount.classList.add("hidden");
+        return;
+    }
+
+    if (eligibleCount === 0) {
+        onlineCount.classList.add("hidden");
+        return;
+    }
+
+    onlineCount.textContent = eligibleCount + " people online";
+    onlineCount.classList.remove("hidden");
+}
+
+/* Server → client feature events */
+
+socket.on("presence", (data) => {
+    eligibleCount = Number(data && data.eligible) || 0;
+    updateOnlineCount();
+});
+
+socket.on("match:intro", (data) => {
+    renderIntro(data);
+});
+
+socket.on("conversation:icebreaker", (q) => {
+    showIcebreaker(q);
+});
+
+socket.on("conversation:milestone", (data) => {
+    // Subtle UX: do not spam. Only surface the first milestone.
+    if (data && data.level === 1) {
+        addMessage("Nice conversation.");
+    }
+});
+
+socket.on("conversation:ended", () => {
+    hideIntroCard();
+    showFeedback();
+});
+
+socket.on("share:prompt", () => {
+    addMessage("Want to bring a friend to SHTM?");
+});
+
+socket.on("session:summary", (data) => {
+    const n = Number(data && data.conversations) || 0;
+    if (n > 0) {
+        addMessage("Conversation " + n);
+    }
+});
+
+icebreakerNext.addEventListener("click", () => {
+    socket.emit("icebreaker:next");
+});
+
+/* Match start reset */
+socket.on("matched", () => {
+    hideIntroCard();
+});
+
+/* Load feature flags + interest catalog */
+async function loadFeatures() {
+    try {
+        const res = await fetch("/api/features");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.flags) {
+            feature.interests = data.flags.interests !== false;
+            feature.icebreakers = data.flags.icebreakers !== false;
+            feature.nextMatch = data.flags.nextMatch !== false;
+            feature.onlineCount = data.flags.onlineCount !== false;
+        }
+        if (Array.isArray(data.interests)) {
+            interestCatalog = data.interests;
+        }
+        showInterestPicker();
+    } catch (_) {
+        /* feature API optional */
+    }
+}
+
+loadFeatures();
 
 /*
 |--------------------------------------------------------------------------
