@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const growth = require("../api/growth");
+const growth = require("../lib/growth");
 
 test("growth: referrerDomain normalizes and classifies direct sources", () => {
     assert.equal(growth.referrerDomain("https://reddit.com/r/shtm"), "reddit.com");

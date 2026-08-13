@@ -105,7 +105,7 @@ function extractDisconnectReasons(loggerSource) {
 }
 
 /**
- * Extract funnel stage names from api/growth.js `FUNNEL_STAGES` array.
+ * Extract funnel stage names from lib/growth.js `FUNNEL_STAGES` array.
  */
 function extractFunnelStages(growthSource) {
     if (!growthSource) return [];
@@ -122,7 +122,7 @@ function extractFunnelStages(growthSource) {
 }
 
 /**
- * Extract experiment ids from api/growth.js `experiments` array.
+ * Extract experiment ids from lib/growth.js `experiments` array.
  */
 function extractGrowthExperiments(growthSource) {
     if (!growthSource) return [];

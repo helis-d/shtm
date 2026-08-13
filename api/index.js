@@ -5,7 +5,7 @@ const path = require("path");
 const { Server } = require("socket.io");
 const sec = require("./security");
 const anl = require("./analytics");
-const growth = require("./growth");
+const growth = require("../lib/growth");
 const log = require("./logger");
 
 const app = express();
@@ -134,12 +134,39 @@ app.get("/stats", (req, res) => {
     res.sendFile(path.join(publicPath, "stats.html"));
 });
 
+/*
+ |--------------------------------------------------------------------------
+ | STATS ENDPOINTS (safe response contract)
+ |--------------------------------------------------------------------------
+ | These endpoints must never crash on empty state and must always return
+ | JSON. Unexpected internal errors map to HTTP 500 with a sanitized body.
+ |--------------------------------------------------------------------------
+ */
+
+function sendStats(req, res, getPayload, endpoint) {
+    try {
+        res.json(getPayload());
+    } catch (err) {
+        log.error("stats_endpoint_error", {
+            requestId: req.headers["x-request-id"] || undefined,
+            endpoint: endpoint || req.path,
+            category: err && err.name ? String(err.name) : "Error",
+            message: err && err.message ? String(err.message) : "unknown"
+        });
+
+        res.status(500).json({
+            error: "internal_error",
+            message: "Statistics are temporarily unavailable."
+        });
+    }
+}
+
 app.get("/api/stats", (req, res) => {
-    res.json(anl.getStats());
+    sendStats(req, res, () => anl.getStats(), "/api/stats");
 });
 
 app.get("/api/growth", (req, res) => {
-    res.json(growth.getStats());
+    sendStats(req, res, () => growth.getStats(), "/api/growth");
 });
 
 /*

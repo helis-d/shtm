@@ -8,7 +8,7 @@ matched with one another.
 
 ## Snapshot mechanism
 
-`api/index.js` injects a live snapshot provider into `api/growth.js`.
+`api/index.js` injects a live snapshot provider into `lib/growth.js`.
 A snapshot runs at startup and every 30s (`growth.startSnapshots(30_000)`).
 
 ```json

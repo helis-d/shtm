@@ -25,7 +25,7 @@ const indexSource = introspect.readIfExists("api/index.js");
 const loggerSource = introspect.readIfExists("api/logger.js");
 const securitySource = introspect.readIfExists("api/security.js");
 const analyticsSource = introspect.readIfExists("api/analytics.js");
-const growthSource = introspect.readIfExists("api/growth.js");
+const growthSource = introspect.readIfExists("lib/growth.js");
 
 /*
 |--------------------------------------------------------------------------
@@ -40,7 +40,7 @@ const criticalFiles = {
     "api/index.js": "HTTP + Socket.IO server, lifecycle, matchmaking, routing",
     "api/security.js": "rate limiting, payload/MIME validation, metrics",
     "api/analytics.js": "aggregate metrics and /api/stats response",
-    "api/growth.js": "growth funnel, cohorts, traffic, density, experiments",
+    "lib/growth.js": "growth funnel, cohorts, traffic, density, experiments",
     "api/logger.js": "structured logger, enums, disconnect forensics",
     "public/app.js": "client socket wiring and connection UX",
     "public/lang.js": "i18n (tr/en) and icebreakers",

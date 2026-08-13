@@ -4,7 +4,7 @@
 
 ### What changed
 
-- Added `api/growth.js`: anonymous, aggregate growth instrumentation.
+- Added `lib/growth.js`: anonymous, aggregate growth instrumentation.
 - Added `GET /api/growth` and a tabbed growth dashboard in `public/stats.html`.
 - Measured a full funnel (landing → CTA → connect → ready → queue → match →
   conversation → completion) with correct denominators.

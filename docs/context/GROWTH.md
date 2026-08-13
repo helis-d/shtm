@@ -14,7 +14,7 @@ maximize page views.
 
 ## Measured funnel
 
-Implemented in `api/growth.js` (`FUNNEL_STAGES`):
+Implemented in `lib/growth.js` (`FUNNEL_STAGES`):
 
 ```
 landing_view

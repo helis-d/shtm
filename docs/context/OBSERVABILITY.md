@@ -69,7 +69,7 @@ See `DECISIONS.md` for the metrics-model upgrade plan.
 
 ## Growth observability (new)
 
-A second observability surface, `api/growth.js`, is exposed via
+A second observability surface, `lib/growth.js`, is exposed via
 `GET /api/growth` and rendered by the growth dashboard (`stats.html`). It
 measures the funnel, traffic sources, country/language cohorts, network
 density, match failures, experiments, and return behavior.

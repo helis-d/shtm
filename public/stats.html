@@ -1082,48 +1082,61 @@
                 fillDisconnectReasons(data.disconnectReasons);
             }
 
+            function renderGrowthPanels(growthData) {
+                window.__growthData = growthData || {};
+
+                renderGrowth(growthData ? growthData.growth : null);
+                renderFunnel(growthData ? growthData.funnel : []);
+                renderCohorts(growthData ? growthData.cohorts : null);
+                renderTraffic(growthData ? growthData.trafficSources : null);
+                renderDensity(growthData ? growthData.networkDensity : null);
+                renderExperiments(growthData ? growthData.experiments : []);
+
+                // When growth is unavailable, leave clear empty states so the
+                // legacy System panel is never blocked by a growth regression.
+                if (!growthData) {
+                    document.getElementById("funnel").innerHTML =
+                        "<div class='empty-state'>Growth data unavailable.</div>";
+                }
+            }
+
             function render(growthData, systemData) {
-                window.__growthData = growthData;
-                renderGrowth(growthData.growth);
-                renderFunnel(growthData.funnel);
-                renderCohorts(growthData.cohorts);
-                renderTraffic(growthData.trafficSources);
-                renderDensity(growthData.networkDensity);
-                renderExperiments(growthData.experiments);
-                renderSystem(systemData);
+                renderGrowthPanels(growthData);
+                if (systemData) {
+                    renderSystem(systemData);
+                }
             }
 
             async function fetchStats() {
-                try {
-                    const [growthRes, systemRes] = await Promise.all([
-                        fetch("/api/growth"),
-                        fetch("/api/stats")
-                    ]);
+                // Fetch independently: legacy /api/stats must keep working even
+                // if the additive /api/growth endpoint fails.
+                const [growthRes, systemRes] = await Promise.all([
+                    fetch("/api/growth").catch(() => null),
+                    fetch("/api/stats")
+                ]);
 
-                    if (!growthRes.ok || !systemRes.ok) {
-                        throw new Error("HTTP error");
-                    }
-
-                    const growthData = await growthRes.json();
-                    const systemData = await systemRes.json();
-
-                    if (!hasData) {
-                        loading.style.display = "none";
-                        content.style.display = "block";
-                        hasData = true;
-                        buildNav();
-                        activatePanel(activePanel);
-                    }
-
-                    errorBanner.classList.remove("visible");
-                    render(growthData, systemData);
-                } catch (err) {
-                    console.error("Stats fetch error:", err);
+                if (!systemRes.ok) {
                     if (!hasData) {
                         loading.style.display = "none";
                         errorBanner.classList.add("visible");
                     }
+                    return;
                 }
+
+                const systemData = await systemRes.json();
+                const growthData =
+                    growthRes && growthRes.ok ? await growthRes.json() : null;
+
+                if (!hasData) {
+                    loading.style.display = "none";
+                    content.style.display = "block";
+                    hasData = true;
+                    buildNav();
+                    activatePanel(activePanel);
+                }
+
+                errorBanner.classList.remove("visible");
+                render(growthData, systemData);
             }
 
             fetchStats();

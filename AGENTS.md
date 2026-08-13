@@ -15,7 +15,7 @@ no persistent DB.
 - **Backend** — `api/index.js`: Express 5 + `http.Server` + Socket.IO (WebSocket-only).
 - **Security** — `api/security.js`: in-memory rate limiters + payload/MIME validation.
 - **Analytics** — `api/analytics.js`: anonymous aggregate stats for `/api/stats`.
-- **Growth** — `api/growth.js`: funnel, cohorts, traffic, density, experiments for `/api/growth`.
+- **Growth** — `lib/growth.js`: funnel, cohorts, traffic, density, experiments for `/api/growth`.
 - **Logger** — `api/logger.js`: structured JSON log + lifecycle/disconnect enums.
 - **Runtime** — Vercel serverless (single instance) or local `npm start`.
 

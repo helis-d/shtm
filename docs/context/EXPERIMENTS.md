@@ -2,7 +2,7 @@
 
 ## Framework
 
-A **lightweight, in-memory** experiment framework in `api/growth.js`. Not a
+A **lightweight, in-memory** experiment framework in `lib/growth.js`. Not a
 platform — the smallest reliable system.
 
 Each experiment defines:
