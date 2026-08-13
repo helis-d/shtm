@@ -1,5 +1,49 @@
 # SHTM — Changelog
 
+## 2026-08-13 — Growth Context Engineering + Network Density
+
+### What changed
+
+- Added `api/growth.js`: anonymous, aggregate growth instrumentation.
+- Added `GET /api/growth` and a tabbed growth dashboard in `public/stats.html`.
+- Measured a full funnel (landing → CTA → connect → ready → queue → match →
+  conversation → completion) with correct denominators.
+- Added traffic source instrumentation: referrer domain, UTM source/medium/
+  campaign, landing page, country, language, coarse device/browser.
+- Added dynamic country + language cohorts (GLOBAL/AU/TR/US/OTHER). Australia
+  is one cohort, not a hardcoded primary market.
+- Added network density metrics: concurrent connected/waiting/matched/eligible
+  users, peak/average, per-country and per-language, and per-country market
+  density (peak concurrent, wait times, matchable population).
+- Added normalized match-failure taxonomy and per-country wait times.
+- Added a lightweight experiment framework and the **Australia Density Test**
+  (`au-density-001`), configurable via `SHTM_AU_WINDOW_ENABLED` and
+  `SHTM_AU_WINDOW`.
+- Added privacy-preserving return behavior (first/second/returning sessions,
+  24h/7d returns, reconnects) via a random `localStorage` visitor id.
+- Added a lightweight share/referral pathway that preserves UTM metadata.
+- Added matchmaking debug traces (`SHTM_MATCH_DEBUG=1`, dev/controlled only).
+- Added `docs/context/GROWTH.md`, `TRAFFIC.md`, `EXPERIMENTS.md`,
+  `NETWORK_DENSITY.md`, and regenerated `current-state.json`.
+
+### Why
+
+- The prior dashboard showed connections/matches/conversations but not what
+  happened between them. The funnel now exposes the full lifecycle.
+- A disproportionate share of traffic appeared to originate from Australia.
+  The new instrumentation distinguishes real sessions vs. reconnects vs.
+  artifacts and attributes referrers, without assuming Australia is the
+  target market.
+
+### Decisions / guardrails
+
+- No fake density: no fake users, online counts, matches, or conversations.
+- Match/conversation pair events are counted once globally and once per shared
+  cohort dimension, so per-country rates stay correct.
+- Experiments change timing + distribution first, not core matchmaking logic.
+
+---
+
 ## 2026-08-12 — Context-Engineered Reliability & Observability Upgrade
 
 ### What changed

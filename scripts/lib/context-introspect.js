@@ -104,6 +104,37 @@ function extractDisconnectReasons(loggerSource) {
     return reasons.sort();
 }
 
+/**
+ * Extract funnel stage names from api/growth.js `FUNNEL_STAGES` array.
+ */
+function extractFunnelStages(growthSource) {
+    if (!growthSource) return [];
+    const block = /FUNNEL_STAGES\s*=\s*\[([\s\S]*?)\];/.exec(growthSource);
+    if (!block) return [];
+
+    const stages = [];
+    const valueRe = /"([a-z_]+)"/g;
+    let m;
+    while ((m = valueRe.exec(block[1])) !== null) {
+        stages.push(m[1]);
+    }
+    return stages;
+}
+
+/**
+ * Extract experiment ids from api/growth.js `experiments` array.
+ */
+function extractGrowthExperiments(growthSource) {
+    if (!growthSource) return [];
+    const ids = [];
+    const valueRe = /experimentId:\s*"([^"]+)"/g;
+    let m;
+    while ((m = valueRe.exec(growthSource)) !== null) {
+        ids.push(m[1]);
+    }
+    return [...new Set(ids)].sort();
+}
+
 module.exports = {
     ROOT,
     readIfExists,
@@ -112,5 +143,7 @@ module.exports = {
     extractServerEvents,
     extractClientEvents,
     extractSocketStates,
-    extractDisconnectReasons
+    extractDisconnectReasons,
+    extractFunnelStages,
+    extractGrowthExperiments
 };

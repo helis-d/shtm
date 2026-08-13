@@ -15,6 +15,7 @@ no persistent DB.
 - **Backend** — `api/index.js`: Express 5 + `http.Server` + Socket.IO (WebSocket-only).
 - **Security** — `api/security.js`: in-memory rate limiters + payload/MIME validation.
 - **Analytics** — `api/analytics.js`: anonymous aggregate stats for `/api/stats`.
+- **Growth** — `api/growth.js`: funnel, cohorts, traffic, density, experiments for `/api/growth`.
 - **Logger** — `api/logger.js`: structured JSON log + lifecycle/disconnect enums.
 - **Runtime** — Vercel serverless (single instance) or local `npm start`.
 
@@ -65,7 +66,8 @@ npm run context:check # verify manifest is not stale
 ```
 
 Tests are behavior-focused: `test/analytics.test.js`, `test/logger.test.js`,
-`test/security.test.js`, `test/lifecycle.integration.test.js`.
+`test/security.test.js`, `test/lifecycle.integration.test.js`,
+`test/growth.test.js`.
 
 ## Deployment assumptions
 
@@ -88,10 +90,17 @@ Tests are behavior-focused: `test/analytics.test.js`, `test/logger.test.js`,
 - Never `console.log` raw events directly — use `log.info/debug/error/security` from
   `api/logger.js`.
 - Never log secrets, tokens, message bodies, or personal data.
+- Growth analytics must remain aggregate-only. Never store raw IPs, raw
+  user-agents, message bodies, or persistent user identity. Visitor id is a
+  random, non-identifying token.
+- A two-participant event (match/conversation) is counted once globally and
+  once per shared cohort dimension — see `docs/context/GROWTH.md`.
+- Never fabricate density (no fake users/online counts/matches).
 
 ## Context files (durable, AI-readable)
 
 `docs/context/SYSTEM.md`, `ARCHITECTURE.md`, `SOCKETS.md`, `MATCHMAKING.md`,
 `DATA_MODEL.md`, `SECURITY.md`, `OBSERVABILITY.md`, `DEPLOYMENT.md`,
-`FAILURE_MODES.md`, `DECISIONS.md`, `GLOSSARY.md`, `CHANGELOG.md`, and the
-generated `current-state.json`.
+`FAILURE_MODES.md`, `DECISIONS.md`, `GLOSSARY.md`, `CHANGELOG.md`, `GROWTH.md`,
+`TRAFFIC.md`, `EXPERIMENTS.md`, `NETWORK_DENSITY.md`, and the generated
+`current-state.json`.

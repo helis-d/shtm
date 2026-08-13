@@ -59,7 +59,11 @@
         submit: "Gönder",
         close: "Kapat",
         language: "Dil",
-        searching_status: "Bir yabancı aranıyor..."
+        searching_status: "Bir yabancı aranıyor...",
+        share: "Paylaş",
+        share_text: "SHTM — Say Hello To Me",
+        share_success: "Bağlantı paylaşıldı.",
+        share_copied: "Bağlantı kopyalandı."
     };
 
     const UI_EN = {
@@ -97,7 +101,11 @@
         submit: "Submit",
         close: "Close",
         language: "Language",
-        searching_status: "Looking for a stranger..."
+        searching_status: "Looking for a stranger...",
+        share: "Share",
+        share_text: "SHTM — Say Hello To Me",
+        share_success: "Link shared.",
+        share_copied: "Link copied."
     };
 
     // ============================================================

@@ -29,6 +29,73 @@ function setConnectionState(state) {
     connectionState = state;
 }
 
+/*
+|--------------------------------------------------------------------------
+| GROWTH / ATTRIBUTION CONTEXT
+|--------------------------------------------------------------------------
+| Privacy-preserving attribution only. No fingerprinting, no cross-site
+| tracking. We pass along:
+|   - vid        : a random, non-identifying visitor token (localStorage)
+|   - ref        : document.referrer (for referrer forensics)
+|   - utm_*      : UTM campaign params (for campaign measurement)
+|   - landing    : current pathname (cohort/campaign landing page)
+|
+| UTM params are persisted through the session so a later share keeps the
+| original campaign association.
+|--------------------------------------------------------------------------
+*/
+
+const VID_STORAGE_KEY = "shtm_vid";
+const UTM_STORAGE_KEY = "shtm_utm";
+
+function getVisitorId() {
+    try {
+        let vid = localStorage.getItem(VID_STORAGE_KEY);
+        if (!vid) {
+            vid =
+                "v_" +
+                Date.now().toString(36) +
+                "_" +
+                Math.random().toString(36).slice(2, 12);
+            localStorage.setItem(VID_STORAGE_KEY, vid);
+        }
+        return vid;
+    } catch (_) {
+        return "";
+    }
+}
+
+function readUtmParams() {
+    const query = new URLSearchParams(window.location.search);
+    const utm = {
+        source: query.get("utm_source") || "",
+        medium: query.get("utm_medium") || "",
+        campaign: query.get("utm_campaign") || ""
+    };
+
+    // Persist if present.
+    if (utm.source || utm.medium || utm.campaign) {
+        try {
+            localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify(utm));
+        } catch (_) {
+            /* ignore */
+        }
+        return utm;
+    }
+
+    // Otherwise restore persisted campaign association.
+    try {
+        const saved = localStorage.getItem(UTM_STORAGE_KEY);
+        if (saved) return JSON.parse(saved) || utm;
+    } catch (_) {
+        /* ignore */
+    }
+
+    return utm;
+}
+
+const attribution = readUtmParams();
+
 const socket = io({
     transports: ["websocket"],
     // Deterministic reconnect with capped attempts (no infinite storms)
@@ -37,7 +104,15 @@ const socket = io({
     reconnectionDelay: 1000,
     reconnectionDelayMax: 8000,
     randomizationFactor: 0.5,
-    timeout: 10000
+    timeout: 10000,
+    query: {
+        vid: getVisitorId(),
+        ref: document.referrer || "",
+        utm_source: attribution.source || "",
+        utm_medium: attribution.medium || "",
+        utm_campaign: attribution.campaign || "",
+        landing: window.location.pathname || "/"
+    }
 });
 
 
@@ -73,6 +148,9 @@ const reportButton =
 
 const findAgainButton =
     document.getElementById("findAgainButton");
+
+const shareButton =
+    document.getElementById("shareButton");
 
 const typing =
     document.getElementById("typing");
@@ -507,6 +585,9 @@ function updateUITexts() {
 
     findAgainButton.textContent =
         t.key("find_again");
+
+    shareButton.textContent =
+        t.key("share");
 
     // Input placeholder
     msgInput.setAttribute(
@@ -1149,6 +1230,63 @@ socket.on(
         );
     }
 );
+
+
+/*
+|--------------------------------------------------------------------------
+| SHARE / REFERRAL (attribution)
+|--------------------------------------------------------------------------
+| Share a link that carries the current campaign metadata (UTM) so the next
+| visitor's session retains the campaign association. Lightweight attribution
+| only — no full referral system.
+|--------------------------------------------------------------------------
+*/
+
+function buildShareUrl() {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.hash = "";
+
+    if (attribution.source) {
+        url.searchParams.set("utm_source", attribution.source);
+    }
+    if (attribution.medium) {
+        url.searchParams.set("utm_medium", attribution.medium);
+    }
+    if (attribution.campaign) {
+        url.searchParams.set("utm_campaign", attribution.campaign);
+    }
+
+    return url.toString();
+}
+
+shareButton.addEventListener("click", async () => {
+    const shareUrl = buildShareUrl();
+
+    try {
+        if (navigator.share) {
+            await navigator.share({
+                title: "SHTM — Say Hello To Me",
+                text: t.key("share_text"),
+                url: shareUrl
+            });
+            addMessage(t.key("share_success"));
+            return;
+        }
+    } catch (err) {
+        // User cancelled the share sheet — fall through to clipboard.
+        if (err && err.name === "AbortError") {
+            return;
+        }
+    }
+
+    try {
+        await navigator.clipboard.writeText(shareUrl);
+        addMessage(t.key("share_copied"));
+    } catch (_) {
+        addMessage(shareUrl);
+    }
+});
 
 
 /*

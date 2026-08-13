@@ -987,6 +987,60 @@ footer {
 
 
 /* =========================================================
+   SHARE
+   ========================================================= */
+
+.share-button {
+    display: block;
+
+    margin:
+        0 auto 14px;
+
+    padding:
+        8px 16px;
+
+    background: var(--card-soft);
+
+    color: var(--ink);
+
+    border:
+        1.5px solid
+        var(--line);
+
+    border-radius: 999px;
+
+    font-size: 10px;
+
+    font-weight: 900;
+
+    box-shadow:
+        2px 2px 0 var(--line);
+
+    cursor: pointer;
+
+    transition:
+        transform 0.08s ease,
+        box-shadow 0.08s ease,
+        background 0.12s ease;
+}
+
+.share-button:hover {
+    background: #e8e1d6;
+}
+
+.share-button:active {
+    transform:
+        translate(
+            2px,
+            2px
+        );
+
+    box-shadow:
+        0 0 0 var(--line);
+}
+
+
+/* =========================================================
    MODAL
    ========================================================= */
 

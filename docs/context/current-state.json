@@ -1,6 +1,6 @@
 {
   "project": "SHTM",
-  "generatedAt": "2026-08-12T18:47:14.396Z",
+  "generatedAt": "2026-08-13T11:55:44.002Z",
   "generator": "scripts/build-context.js",
   "architecture": {
     "frontend": "vanilla JS + HTML + CSS in public/",
@@ -125,6 +125,55 @@
       "trackImage",
       "trackRateLimitViolation",
       "trackWSLatency"
+    ],
+    "growthTracking": [
+      "trackLandingView",
+      "trackCtaClick",
+      "trackConnectionAttempt",
+      "trackConnectionSuccess",
+      "trackSessionCreated",
+      "trackSessionReady",
+      "trackQueueJoin",
+      "trackQueueLeave",
+      "trackMatchAttempt",
+      "trackMatchCandidateFound",
+      "trackMatchCreatedPair",
+      "trackConversationStartedPair",
+      "trackConversationMessage",
+      "trackConversationEndedPair",
+      "trackMatchFailure",
+      "trackMatchWaitTime"
+    ]
+  },
+  "growth": {},
+  "trafficSources": {},
+  "experiments": {
+    "definitions": [
+      "au-density-001"
+    ],
+    "eventWindow": "SHTM_AU_WINDOW + SHTM_AU_WINDOW_ENABLED env"
+  },
+  "networkDensity": {
+    "snapshotIntervalMs": 30000,
+    "eligibleDefinition": "connected sockets not currently in a room (immediately matchable)"
+  },
+  "funnel": {
+    "stages": [
+      "landing_view",
+      "primary_cta_click",
+      "connection_attempt",
+      "connection_success",
+      "session_created",
+      "session_ready",
+      "queue_join",
+      "queue_leave",
+      "match_attempt",
+      "match_candidate_found",
+      "match_created",
+      "match_confirmed",
+      "conversation_started",
+      "conversation_message",
+      "conversation_ended"
     ]
   },
   "security": {
@@ -192,6 +241,7 @@
       "api/index.js",
       "api/security.js",
       "api/analytics.js",
+      "api/growth.js",
       "api/logger.js",
       "public/app.js",
       "public/lang.js",
@@ -205,6 +255,7 @@
       "api/index.js": "HTTP + Socket.IO server, lifecycle, matchmaking, routing",
       "api/security.js": "rate limiting, payload/MIME validation, metrics",
       "api/analytics.js": "aggregate metrics and /api/stats response",
+      "api/growth.js": "growth funnel, cohorts, traffic, density, experiments",
       "api/logger.js": "structured logger, enums, disconnect forensics",
       "public/app.js": "client socket wiring and connection UX",
       "public/lang.js": "i18n (tr/en) and icebreakers",

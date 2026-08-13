@@ -5,6 +5,7 @@ const path = require("path");
 const { Server } = require("socket.io");
 const sec = require("./security");
 const anl = require("./analytics");
+const growth = require("./growth");
 const log = require("./logger");
 
 const app = express();
@@ -125,6 +126,7 @@ app.get("/speed-insights.mjs", (req, res) => {
 });
 
 app.get("/", (req, res) => {
+    growth.trackLandingView(growth.ctxFromRequest(req));
     res.sendFile(path.join(publicPath, "index.html"));
 });
 
@@ -134,6 +136,10 @@ app.get("/stats", (req, res) => {
 
 app.get("/api/stats", (req, res) => {
     res.json(anl.getStats());
+});
+
+app.get("/api/growth", (req, res) => {
+    res.json(growth.getStats());
 });
 
 /*
@@ -193,11 +199,37 @@ function getPartner(socket) {
 function trackMatchWait(userA, userB) {
     const now = Date.now();
     if (userA._queuedAt) {
-        anl.trackMatchWaitTime(now - userA._queuedAt);
+        const ms = now - userA._queuedAt;
+        anl.trackMatchWaitTime(ms);
+        if (userA.growthCtx && userA.growthCtx.country) {
+            growth.trackMatchWaitTime(userA.growthCtx.country, ms);
+        }
     }
     if (userB._queuedAt) {
-        anl.trackMatchWaitTime(now - userB._queuedAt);
+        const ms = now - userB._queuedAt;
+        anl.trackMatchWaitTime(ms);
+        if (userB.growthCtx && userB.growthCtx.country) {
+            growth.trackMatchWaitTime(userB.growthCtx.country, ms);
+        }
     }
+}
+
+/**
+ * Development/controlled-environment matchmaking trace. Never exposed to end
+ * users; emits only when SHTM_MATCH_DEBUG=1.
+ */
+function matchDebug(socket, meta = {}) {
+    if (process.env.SHTM_MATCH_DEBUG !== "1") {
+        return;
+    }
+
+    log.debug("matchmaking_debug", {
+        socketId: socket.id,
+        sessionId: socket.sessionId,
+        connectionState: socket.connectionState,
+        candidateCount: waitingUser && waitingUser !== socket ? 1 : 0,
+        ...meta
+    });
 }
 
 /**
@@ -293,6 +325,10 @@ function queueUser(socket) {
         return;
     }
 
+    const ctx = socket.growthCtx || {};
+
+    growth.trackMatchAttempt(ctx);
+
     const matchmakingCheck = sec.checkMatchmakingRate(socket.id);
 
     sec.incrementMetric("matchmakingAttempts");
@@ -301,11 +337,15 @@ function queueUser(socket) {
         sec.incrementMetric("rateLimitViolations");
         anl.trackRateLimitViolation();
 
+        growth.trackMatchFailure("SESSION_EXPIRED", ctx);
+
         log.security("rate_limit", {
             event: "matchmaking_rate_limit",
             socketId: socket.id,
             sessionId: socket.sessionId
         });
+
+        matchDebug(socket, { failure: "SESSION_EXPIRED" });
 
         send(socket, "messageError", {
             message: matchmakingCheck.message
@@ -315,12 +355,27 @@ function queueUser(socket) {
     }
 
     if (waitingUser && !isConnected(waitingUser)) {
+        matchDebug(socket, {
+            failure: "CANDIDATE_DISCONNECTED",
+            discardedCandidate: waitingUser ? waitingUser.id : null
+        });
+
+        growth.trackMatchFailure("CANDIDATE_DISCONNECTED", ctx);
+
         waitingUser = null;
     }
 
     if (waitingUser && waitingUser.id !== socket.id) {
         const other = waitingUser;
         waitingUser = null;
+
+        growth.trackMatchCandidateFound(ctx);
+        growth.trackMatchCandidateFound(other.growthCtx || {});
+
+        matchDebug(socket, {
+            event: "candidate_selected",
+            candidateId: other.id
+        });
 
         trackMatchWait(other, socket);
 
@@ -333,19 +388,41 @@ function queueUser(socket) {
     socket._queuedAt = Date.now();
     socket.connectionState = STATE.WAITING;
 
+    growth.trackQueueJoin(ctx);
+
+    matchDebug(socket, {
+        event: "queue_join",
+        candidateCount: 0,
+        matchingCriteria: { mode: "global-any" }
+    });
+
     log.debug("queue_join", {
         socketId: socket.id,
         sessionId: socket.sessionId
     });
 
+    // Cohorts may override the searching message via configuration only.
+    const cohortMessage = growth.getCohortMessage(
+        ctx.country,
+        ctx.variant,
+        "searching"
+    );
+
     send(socket, "searching", {
-        message: "Bir yabancı aranıyor..."
+        message: cohortMessage || "Bir yabancı aranıyor..."
     });
 }
 
 function createMatch(userA, userB) {
     anl.trackMatchStarted();
     anl.trackConversationStarted();
+
+    const ctxA = userA.growthCtx || {};
+    const ctxB = userB.growthCtx || {};
+
+    // A match produces a single match + conversation; attribute to both.
+    growth.trackMatchCreatedPair(ctxA, ctxB);
+    growth.trackConversationStartedPair(ctxA, ctxB);
 
     const roomId = `room_${crypto.randomUUID()}`;
 
@@ -425,6 +502,11 @@ function finishRoom(roomId, reason = "manual") {
     anl.trackConversationEnded(duration);
     anl.trackMatchCompleted();
 
+    growth.trackConversationEndedPair(
+        record.userA.growthCtx || {},
+        record.userB.growthCtx || {}
+    );
+
     let message = "Sohbet sona erdi.";
 
     if (reason === "timeout") {
@@ -465,6 +547,16 @@ io.on("connection", (socket) => {
     // whether or not the application-level IP rate limit accepts it.
     anl.trackConnectionAttempt();
 
+    const growthCtx = growth.ctxFromRequest(socket.request);
+    const experiment = growth.assignExperiment(growthCtx);
+    growthCtx.experimentId = experiment.experimentId;
+    growthCtx.variant = experiment.variant;
+    socket.growthCtx = growthCtx;
+
+    growth.registerVisitor(growthCtx.visitorId);
+
+    growth.trackConnectionAttempt(growthCtx);
+
     const connectionCheck = sec.checkConnectionRate(socket);
 
     sec.incrementMetric("connections");
@@ -500,6 +592,10 @@ io.on("connection", (socket) => {
     socket.sessionId = crypto.randomUUID();
     socket.connectedAt = Date.now();
     socket.connectionState = STATE.CONNECTED;
+
+    growth.trackConnectionSuccess(growthCtx);
+    growth.trackSessionCreated(growthCtx);
+    growth.trackSessionReady(growthCtx);
 
     socket.roomId = null;
     socket.roomTimer = null;
@@ -677,6 +773,12 @@ io.on("connection", (socket) => {
 
         sec.incrementMetric("messages");
         anl.trackMessage();
+
+        if (!socket._messageCounted) {
+            socket._messageCounted = true;
+            growth.trackConversationWithMessage();
+        }
+        growth.trackConversationMessage(socket.growthCtx || {});
 
         socket.typing = false;
 
@@ -867,6 +969,8 @@ io.on("connection", (socket) => {
         if (waitingUser === socket) {
             waitingUser = null;
 
+            growth.trackQueueLeave(socket.growthCtx || {});
+
             log.debug("queue_leave", {
                 socketId: socket.id,
                 sessionId: socket.sessionId,
@@ -933,6 +1037,87 @@ anl.setActiveCountGetters(
     },
     () => (waitingUser && isConnected(waitingUser) ? 1 : 0)
 );
+
+/*
+|--------------------------------------------------------------------------
+| NETWORK DENSITY SNAPSHOT PROVIDER (injected into growth)
+|--------------------------------------------------------------------------
+| Provides live concurrent-user structure:
+|   global: connected / waiting / matched / eligible
+|   countries: country -> { connected, waiting, eligible }
+|   languages: language -> { connected, waiting, eligible }
+|
+| "eligible" = matching candidates currently available = connected users not
+| already in a room (they are waiting or could be matched immediately). This
+| is real live state — never fabricated.
+|--------------------------------------------------------------------------
+*/
+
+growth.setSnapshotProvider(() => {
+    const sockets = io.sockets.sockets;
+    const global = { connected: 0, waiting: 0, matched: 0, eligible: 0 };
+    const countries = {};
+    const languages = {};
+
+    for (const socket of sockets.values()) {
+        if (!socket.connected) continue;
+
+        global.connected += 1;
+
+        const ctx = socket.growthCtx || {};
+        const inRoom = Boolean(socket.roomId);
+
+        if (!inRoom) {
+            global.eligible += 1;
+        }
+        if (socket.connectionState === STATE.WAITING) {
+            global.waiting += 1;
+        }
+        if (socket.connectionState === STATE.MATCHED) {
+            global.matched += 1;
+        }
+
+        if (ctx.country) {
+            if (!countries[ctx.country]) {
+                countries[ctx.country] = {
+                    connected: 0,
+                    waiting: 0,
+                    eligible: 0
+                };
+            }
+            countries[ctx.country].connected += 1;
+            if (!inRoom) countries[ctx.country].eligible += 1;
+            if (socket.connectionState === STATE.WAITING) {
+                countries[ctx.country].waiting += 1;
+            }
+        }
+
+        if (ctx.language) {
+            if (!languages[ctx.language]) {
+                languages[ctx.language] = {
+                    connected: 0,
+                    waiting: 0,
+                    eligible: 0
+                };
+            }
+            languages[ctx.language].connected += 1;
+            if (!inRoom) languages[ctx.language].eligible += 1;
+            if (socket.connectionState === STATE.WAITING) {
+                languages[ctx.language].waiting += 1;
+            }
+        }
+    }
+
+    return {
+        timestamp: Date.now(),
+        global,
+        countries,
+        languages
+    };
+});
+
+growth.takeSnapshot();
+growth.startSnapshots(30_000);
 
 /*
 |--------------------------------------------------------------------------

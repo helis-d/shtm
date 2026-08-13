@@ -66,3 +66,12 @@
 - No percentile (p50/p95/p99) metrics exist; only mean/median/max.
 
 See `DECISIONS.md` for the metrics-model upgrade plan.
+
+## Growth observability (new)
+
+A second observability surface, `api/growth.js`, is exposed via
+`GET /api/growth` and rendered by the growth dashboard (`stats.html`). It
+measures the funnel, traffic sources, country/language cohorts, network
+density, match failures, experiments, and return behavior.
+
+See `GROWTH.md`, `TRAFFIC.md`, `EXPERIMENTS.md`, and `NETWORK_DENSITY.md`.

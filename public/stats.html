@@ -22,6 +22,9 @@
             --ink: #171717;
             --muted: #77716a;
             --green: #84cfa8;
+            --blue: #91c5ff;
+            --yellow: #ffd95d;
+            --orange: #ff715f;
             --line: #1d1d1d;
         }
 
@@ -49,14 +52,14 @@
         }
 
         .page {
-            max-width: 900px;
+            max-width: 960px;
             margin: 0 auto;
             padding: 32px 20px 48px;
         }
 
         header {
             text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 28px;
         }
 
         header h1 {
@@ -70,6 +73,30 @@
             font-size: 12px;
             color: var(--muted);
             margin: 0;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 16px 0 0;
+        }
+
+        .nav button {
+            padding: 7px 13px;
+            border: 1.5px solid var(--line);
+            border-radius: 999px;
+            background: var(--card);
+            color: var(--ink);
+            font-size: 11px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .nav button.active {
+            background: var(--ink);
+            color: var(--card);
         }
 
         .live-badge {
@@ -106,10 +133,17 @@
             border: 1.5px solid var(--line);
             border-radius: 13px;
             font-size: 12px;
-            color: var(--ink);
         }
 
         .error-banner.visible {
+            display: block;
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
             display: block;
         }
 
@@ -124,6 +158,36 @@
             padding-bottom: 6px;
             border-bottom: 1.5px solid var(--line);
             letter-spacing: -0.02em;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .card {
+            padding: 12px 14px;
+            background: var(--card);
+            border: 1.5px solid var(--line);
+            border-radius: 14px;
+            box-shadow: 3px 3px 0 var(--line);
+        }
+
+        .card .label {
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+        }
+
+        .card .value {
+            font-size: 22px;
+            font-weight: 900;
+            margin-top: 3px;
+            font-variant-numeric: tabular-nums;
         }
 
         .table-wrap {
@@ -145,13 +209,8 @@
 
         th {
             font-weight: 900;
-            color: var(--ink);
             background: #f8f3eb;
             white-space: nowrap;
-        }
-
-        td {
-            color: var(--ink);
         }
 
         td.number {
@@ -173,6 +232,41 @@
             padding: 48px 20px;
             color: var(--muted);
             font-size: 13px;
+        }
+
+        .funnel-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+
+        .funnel-row .stage {
+            flex: 0 0 190px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .funnel-row .bar-track {
+            flex: 1;
+            height: 22px;
+            background: #efe7d8;
+            border: 1.5px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .funnel-row .bar {
+            height: 100%;
+            background: var(--blue);
+        }
+
+        .funnel-row .count {
+            flex: 0 0 70px;
+            text-align: right;
+            font-size: 12px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
         }
 
         footer {
@@ -209,6 +303,11 @@
                 padding: 6px 8px;
                 font-size: 11px;
             }
+
+            .funnel-row .stage {
+                flex: 0 0 140px;
+                font-size: 10px;
+            }
         }
     </style>
 </head>
@@ -224,6 +323,7 @@
                 <span class="live-dot"></span>
                 LIVE
             </div>
+            <div class="nav" id="nav"></div>
         </header>
 
         <div
@@ -239,118 +339,284 @@
 
         <div id="content" style="display:none">
 
-            <!-- 1. Global Overview -->
-            <section class="section">
-                <h2>Global Overview</h2>
-                <div class="table-wrap">
-                    <table id="table-global">
-                        <thead>
-                            <tr>
-                                <th>Statistic</th>
-                                <th>Value</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+            <!-- GROWTH OVERVIEW -->
+            <section class="panel" data-panel="growth">
+                <div class="section">
+                    <h2>Growth Overview</h2>
+                    <div class="cards" id="growth-cards"></div>
+                </div>
+
+                <div class="section">
+                    <h2>Funnel</h2>
+                    <div class="table-wrap">
+                        <div id="funnel"></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Return Behavior</h2>
+                    <div class="table-wrap">
+                        <table id="table-return">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th class="number">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
-            <!-- 2. Users by Country -->
-            <section class="section">
-                <h2>Users by Country</h2>
-                <div class="table-wrap">
-                    <table id="table-countries">
-                        <thead>
-                            <tr>
-                                <th>Country</th>
-                                <th class="number">Users</th>
-                                <th class="number">Percentage</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+            <!-- COHORTS -->
+            <section class="panel" data-panel="cohorts">
+                <div class="section">
+                    <h2>Cohort Funnel</h2>
+                    <div class="table-wrap">
+                        <table id="table-cohorts">
+                            <thead>
+                                <tr>
+                                    <th>Cohort</th>
+                                    <th class="number">Sessions</th>
+                                    <th class="number">Connections</th>
+                                    <th class="number">Ready</th>
+                                    <th class="number">Queue Joins</th>
+                                    <th class="number">Match Attempts</th>
+                                    <th class="number">Matches</th>
+                                    <th class="number">Conv. Started</th>
+                                    <th class="number">Conv. Completed</th>
+                                    <th class="number">Match Success</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
-            <!-- 3. Users by Language -->
-            <section class="section">
-                <h2>Users by Language</h2>
-                <div class="table-wrap">
-                    <table id="table-languages">
-                        <thead>
-                            <tr>
-                                <th>Language</th>
-                                <th class="number">Users</th>
-                                <th class="number">Percentage</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+            <!-- TRAFFIC SOURCES -->
+            <section class="panel" data-panel="traffic">
+                <div class="section">
+                    <h2>Traffic Sources (by Referrer)</h2>
+                    <div class="table-wrap">
+                        <table id="table-traffic">
+                            <thead>
+                                <tr>
+                                    <th>Referrer</th>
+                                    <th class="number">Sessions</th>
+                                    <th class="number">Connections</th>
+                                    <th class="number">Queue Joins</th>
+                                    <th class="number">Matches</th>
+                                    <th class="number">Conversations</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Referrer Forensics (Country → Referrer)</h2>
+                    <div class="table-wrap">
+                        <table id="table-forensics">
+                            <thead>
+                                <tr>
+                                    <th>Country</th>
+                                    <th>Referrer</th>
+                                    <th class="number">Sessions</th>
+                                    <th class="number">Connections</th>
+                                    <th class="number">Queue Joins</th>
+                                    <th class="number">Matches</th>
+                                    <th class="number">Conversations</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>UTM Campaigns</h2>
+                    <div class="table-wrap">
+                        <table id="table-utm">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Medium</th>
+                                    <th>Campaign</th>
+                                    <th class="number">Sessions</th>
+                                    <th class="number">Matches</th>
+                                    <th class="number">Conversations</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
-            <!-- 4. Matching Statistics -->
-            <section class="section">
-                <h2>Matching Statistics</h2>
-                <div class="table-wrap">
-                    <table id="table-matching">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th class="number">Value</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+            <!-- NETWORK DENSITY -->
+            <section class="panel" data-panel="density">
+                <div class="section">
+                    <h2>Network Density</h2>
+                    <div class="cards" id="density-cards"></div>
+                </div>
+
+                <div class="section">
+                    <h2>Market Density</h2>
+                    <div class="table-wrap">
+                        <table id="table-market">
+                            <thead>
+                                <tr>
+                                    <th>Country</th>
+                                    <th class="number">Peak Concurrent</th>
+                                    <th class="number">Avg Concurrent</th>
+                                    <th class="number">Peak Queue</th>
+                                    <th class="number">Matchable</th>
+                                    <th class="number">Avg Wait</th>
+                                    <th class="number">p50 Wait</th>
+                                    <th class="number">p95 Wait</th>
+                                    <th class="number">Match Success</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
-            <!-- 5. Conversation Statistics -->
-            <section class="section">
-                <h2>Conversation Statistics</h2>
-                <div class="table-wrap">
-                    <table id="table-conversation">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th class="number">Value</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+            <!-- EXPERIMENTS -->
+            <section class="panel" data-panel="experiments">
+                <div class="section">
+                    <h2>Experiments</h2>
+                    <div id="experiments"></div>
                 </div>
             </section>
 
-            <!-- 6. System / Performance -->
-            <section class="section">
-                <h2>System / Performance</h2>
-                <div class="table-wrap">
-                    <table id="table-system">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th class="number">Value</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+            <!-- SYSTEM (original) -->
+            <section class="panel" data-panel="system">
+                <div class="section">
+                    <h2>Global Overview</h2>
+                    <div class="table-wrap">
+                        <table id="table-global">
+                            <thead>
+                                <tr>
+                                    <th>Statistic</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
-            </section>
 
-            <!-- 7. Disconnect Reasons -->
-            <section class="section">
-                <h2>Disconnect Reasons</h2>
-                <div class="table-wrap">
-                    <table id="table-disconnects">
-                        <thead>
-                            <tr>
-                                <th>Reason</th>
-                                <th class="number">Count</th>
-                                <th class="number">Percentage</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                <div class="section">
+                    <h2>Users by Country</h2>
+                    <div class="table-wrap">
+                        <table id="table-countries">
+                            <thead>
+                                <tr>
+                                    <th>Country</th>
+                                    <th class="number">Users</th>
+                                    <th class="number">Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Users by Language</h2>
+                    <div class="table-wrap">
+                        <table id="table-languages">
+                            <thead>
+                                <tr>
+                                    <th>Language</th>
+                                    <th class="number">Users</th>
+                                    <th class="number">Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Matching Statistics</h2>
+                    <div class="table-wrap">
+                        <table id="table-matching">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th class="number">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Conversation Statistics</h2>
+                    <div class="table-wrap">
+                        <table id="table-conversation">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th class="number">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>System / Performance</h2>
+                    <div class="table-wrap">
+                        <table id="table-system">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th class="number">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Match Failures</h2>
+                    <div class="table-wrap">
+                        <table id="table-match-failures">
+                            <thead>
+                                <tr>
+                                    <th>Reason</th>
+                                    <th class="number">Count</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>Disconnect Reasons</h2>
+                    <div class="table-wrap">
+                        <table id="table-disconnects">
+                            <thead>
+                                <tr>
+                                    <th>Reason</th>
+                                    <th class="number">Count</th>
+                                    <th class="number">Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -381,81 +647,94 @@
             const errorBanner =
                 document.getElementById("errorBanner");
 
+            const nav = document.getElementById("nav");
+
+            const PANELS = [
+                ["growth", "Growth"],
+                ["cohorts", "Cohorts"],
+                ["traffic", "Traffic"],
+                ["density", "Density"],
+                ["experiments", "Experiments"],
+                ["system", "System"]
+            ];
+
+            let activePanel = "growth";
             let hasData = false;
 
-            /**
-             * Format milliseconds as human-readable seconds.
-             */
-            function formatMs(ms) {
-                if (!ms || ms === 0) return "—";
-
-                const seconds = (ms / 1000).toFixed(1);
-                return seconds + "s";
+            function escapeHtml(str) {
+                const div = document.createElement("div");
+                div.textContent = str == null ? "" : String(str);
+                return div.innerHTML;
             }
 
-            /**
-             * Apply privacy threshold: show "<3" for 1-2.
-             */
+            function formatMs(ms) {
+                if (!ms || ms === 0) return "—";
+                return (ms / 1000).toFixed(1) + "s";
+            }
+
             function privacy(n) {
                 if (typeof n !== "number") return "—";
                 if (n === 1 || n === 2) return "<3";
                 return n;
             }
 
-            /**
-             * Populate a key-value table.
-             */
-            function fillKeyValue(
-                tableId,
-                rows
-            ) {
-                const table =
-                    document.getElementById(
-                        tableId
+            function pct(n) {
+                if (typeof n !== "number" || !isFinite(n)) return "—";
+                return n.toFixed(1) + "%";
+            }
+
+            function buildNav() {
+                nav.innerHTML = PANELS.map(
+                    ([id, label]) =>
+                        "<button data-target='" + id + "' class='" +
+                        (id === activePanel ? "active" : "") +
+                        "'>" + label + "</button>"
+                ).join("");
+
+                nav.querySelectorAll("button").forEach((btn) => {
+                    btn.addEventListener("click", () => {
+                        activatePanel(btn.getAttribute("data-target"));
+                    });
+                });
+            }
+
+            function activatePanel(id) {
+                activePanel = id;
+                document.querySelectorAll(".panel").forEach((p) => {
+                    p.classList.toggle(
+                        "active",
+                        p.getAttribute("data-panel") === id
                     );
+                });
+                nav.querySelectorAll("button").forEach((b) => {
+                    b.classList.toggle(
+                        "active",
+                        b.getAttribute("data-target") === id
+                    );
+                });
+            }
 
-                const tbody =
-                    table.querySelector("tbody");
-
+            function fillKeyValue(tableId, rows) {
+                const table = document.getElementById(tableId);
+                const tbody = table.querySelector("tbody");
                 tbody.innerHTML = rows
                     .map(
                         ([label, value]) =>
-                            "<tr>" +
-                            "<td>" +
-                            escapeHtml(label) +
-                            "</td>" +
-                            "<td class='number'>" +
-                            escapeHtml(
-                                String(value)
-                            ) +
-                            "</td>" +
-                            "</tr>"
+                            "<tr><td>" + escapeHtml(label) +
+                            "</td><td class='number'>" +
+                            escapeHtml(String(value)) + "</td></tr>"
                     )
                     .join("");
             }
 
-            /**
-             * Populate a distribution table (country/language).
-             */
-            function fillDistribution(
-                tableId,
-                items,
-                emptyText
-            ) {
-                const table =
-                    document.getElementById(
-                        tableId
-                    );
-
-                const tbody =
-                    table.querySelector("tbody");
+            function fillDistribution(tableId, items, emptyText) {
+                const table = document.getElementById(tableId);
+                const tbody = table.querySelector("tbody");
 
                 if (!items || items.length === 0) {
                     tbody.innerHTML =
                         "<tr><td colspan='3' class='empty-state'>" +
-                        escapeHtml(
-                            emptyText || "No data yet"
-                        ) +
+                        escapeHtml(emptyText || "No data yet") +
                         "</td></tr>";
                     return;
                 }
@@ -463,335 +742,391 @@
                 tbody.innerHTML = items
                     .map(
                         (item) =>
-                            "<tr>" +
-                            "<td>" +
-                            escapeHtml(item.name) +
-                            "</td>" +
-                            "<td class='number'>" +
+                            "<tr><td>" + escapeHtml(item.name) +
+                            "</td><td class='number'>" +
                             privacy(item.count) +
-                            "</td>" +
-                            "<td class='number'>" +
-                            escapeHtml(
-                                item.percentage + "%"
-                            ) +
-                            "</td>" +
-                            "</tr>"
+                            "</td><td class='number'>" +
+                            escapeHtml(item.percentage + "%") +
+                            "</td></tr>"
                     )
                     .join("");
             }
 
-            /**
-             * Populate the disconnect-reasons distribution table.
-             */
             function fillDisconnectReasons(items) {
-                const table =
-                    document.getElementById(
-                        "table-disconnects"
-                    );
-
-                const tbody =
-                    table.querySelector("tbody");
+                const table = document.getElementById("table-disconnects");
+                const tbody = table.querySelector("tbody");
 
                 if (!items || items.length === 0) {
                     tbody.innerHTML =
-                        "<tr><td colspan='3' class='empty-state'>" +
-                        "No data yet" +
-                        "</td></tr>";
+                        "<tr><td colspan='3' class='empty-state'>No data yet</td></tr>";
                     return;
                 }
 
                 tbody.innerHTML = items
                     .map(
                         (item) =>
-                            "<tr>" +
-                            "<td>" +
-                            escapeHtml(item.reason) +
-                            "</td>" +
-                            "<td class='number'>" +
-                            escapeHtml(String(item.count)) +
-                            "</td>" +
-                            "<td class='number'>" +
-                            escapeHtml(
-                                item.percentage + "%"
-                            ) +
-                            "</td>" +
-                            "</tr>"
+                            "<tr><td>" + escapeHtml(item.reason) +
+                            "</td><td class='number'>" + item.count +
+                            "</td><td class='number'>" +
+                            escapeHtml(item.percentage + "%") +
+                            "</td></tr>"
                     )
                     .join("");
             }
 
-            function escapeHtml(str) {
-                const div =
-                    document.createElement("div");
-                div.textContent = str;
-                return div.innerHTML;
+            function renderCards(containerId, cards) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = cards
+                    .map(
+                        (c) =>
+                            "<div class='card'><div class='label'>" +
+                            escapeHtml(c.label) +
+                            "</div><div class='value'>" + escapeHtml(c.value) +
+                            "</div></div>"
+                    )
+                    .join("");
             }
 
-            /**
-             * Render all tables from API response.
-             */
-            function render(data) {
-                if (!data) return;
+            function renderGrowth(g) {
+                if (!g) return;
 
-                fillKeyValue("table-global", [
-                    [
-                        "Total Connections",
-                        privacy(data.global.totalConnections)
-                    ],
-                    [
-                        "Total Matches",
-                        privacy(data.global.totalMatches)
-                    ],
-                    [
-                        "Total Conversations",
-                        privacy(
-                            data.global.totalConversations
-                        )
-                    ],
-                    [
-                        "Active Users",
-                        privacy(data.global.activeUsers)
-                    ],
-                    [
-                        "Active Matches",
-                        privacy(
-                            data.global.activeMatches
-                        )
-                    ],
-                    [
-                        "Waiting Users",
-                        privacy(data.global.waitingUsers)
-                    ],
-                    [
-                        "Average Match Time",
-                        formatMs(
-                            data.global.avgMatchWaitMs
-                        )
-                    ],
-                    [
-                        "Average Conversation Duration",
-                        formatMs(
-                            data.global
-                                .avgConversationDurationMs
-                        )
-                    ]
+                renderCards("growth-cards", [
+                    ["Total Sessions", privacy(g.totalSessions)],
+                    ["Unique Sessions", privacy(g.uniqueSessions)],
+                    ["Connections", privacy(g.connections)],
+                    ["Queue Joins", privacy(g.queueJoins)],
+                    ["Matches", privacy(g.matches)],
+                    ["Conversations", privacy(g.conversations)],
+                    ["Conversations Completed", privacy(g.conversationsCompleted)],
+                    ["With Messages", privacy(g.conversationsWithMessages)],
+                    ["Network Effectiveness", pct(g.networkEffectiveness)]
                 ]);
 
-                fillDistribution(
-                    "table-countries",
-                    data.countries,
-                    "No data yet"
-                );
+                const returnRows = [
+                    ["First Sessions", privacy(g.totalSessions)],
+                    ["Unique Sessions", privacy(g.uniqueSessions)]
+                ];
 
-                fillDistribution(
-                    "table-languages",
-                    data.languages,
-                    "No data yet"
-                );
+                const rb = window.__growthData && window.__growthData.returnBehavior;
+                if (rb) {
+                    returnRows.push(["First Sessions (visitor)", privacy(rb.firstSessions)]);
+                    returnRows.push(["Second Sessions", privacy(rb.secondSessions)]);
+                    returnRows.push(["Returning Sessions", privacy(rb.returningSessions)]);
+                    returnRows.push(["Return Within 24h", privacy(rb.returnWithin24h)]);
+                    returnRows.push(["Return Within 7d", privacy(rb.returnWithin7d)]);
+                    returnRows.push(["Reconnect Connections", privacy(rb.reconnectConnections)]);
+                }
+
+                fillKeyValue("table-return", returnRows);
+            }
+
+            function renderFunnel(stages) {
+                if (!stages || stages.length === 0) return;
+
+                const max = Math.max.apply(null, stages.map((s) => s.count || 0));
+                const el = document.getElementById("funnel");
+
+                el.innerHTML = stages
+                    .map((s) => {
+                        const width = max ? Math.max(2, ((s.count / max) * 100)) : 0;
+                        return (
+                            "<div class='funnel-row'>" +
+                            "<div class='stage'>" + escapeHtml(s.stage) + "</div>" +
+                            "<div class='bar-track'><div class='bar' style='width:" +
+                            width.toFixed(1) + "%'></div></div>" +
+                            "<div class='count'>" + privacy(s.count) + "</div>" +
+                            "</div>"
+                        );
+                    })
+                    .join("");
+            }
+
+            function renderCohorts(cohorts) {
+                if (!cohorts) return;
+                const table = document.getElementById("table-cohorts");
+                const tbody = table.querySelector("tbody");
+
+                const order = ["GLOBAL", "AU", "TR", "US", "OTHER"];
+                const rows = order
+                    .filter((code) => cohorts[code])
+                    .map((code) => {
+                        const c = cohorts[code];
+                        return (
+                            "<tr><td>" + escapeHtml(code) + "</td>" +
+                            "<td class='number'>" + privacy(c.sessions) + "</td>" +
+                            "<td class='number'>" + privacy(c.connections) + "</td>" +
+                            "<td class='number'>" + privacy(c.sessionReady) + "</td>" +
+                            "<td class='number'>" + privacy(c.queueJoins) + "</td>" +
+                            "<td class='number'>" + privacy(c.matchAttempts) + "</td>" +
+                            "<td class='number'>" + privacy(c.matches) + "</td>" +
+                            "<td class='number'>" + privacy(c.conversationsStarted) + "</td>" +
+                            "<td class='number'>" + privacy(c.conversationsCompleted) + "</td>" +
+                            "<td class='number'>" +
+                            pct(c.conversionRates && c.conversionRates.matchSuccessRate) +
+                            "</td></tr>"
+                        );
+                    })
+                    .join("");
+
+                tbody.innerHTML = rows ||
+                    "<tr><td colspan='10' class='empty-state'>No data yet</td></tr>";
+            }
+
+            function renderTraffic(ts) {
+                if (!ts) return;
+
+                const ref = document.getElementById("table-traffic");
+                const refRows = (ts.referrers || [])
+                    .map(
+                        (r) =>
+                            "<tr><td>" + escapeHtml(r.domain) + "</td>" +
+                            "<td class='number'>" + privacy(r.sessions) + "</td>" +
+                            "<td class='number'>" + privacy(r.connections) + "</td>" +
+                            "<td class='number'>" + privacy(r.queueJoins) + "</td>" +
+                            "<td class='number'>" + privacy(r.matches) + "</td>" +
+                            "<td class='number'>" + privacy(r.conversations) + "</td></tr>"
+                    )
+                    .join("");
+                ref.querySelector("tbody").innerHTML = refRows ||
+                    "<tr><td colspan='6' class='empty-state'>No data yet</td></tr>";
+
+                const forensics = document.getElementById("table-forensics");
+                const forRows = (ts.forensics || [])
+                    .map(
+                        (f) =>
+                            "<tr><td>" + escapeHtml(f.country) + "</td>" +
+                            "<td>" + escapeHtml(f.referrer) + "</td>" +
+                            "<td class='number'>" + privacy(f.sessions) + "</td>" +
+                            "<td class='number'>" + privacy(f.connections) + "</td>" +
+                            "<td class='number'>" + privacy(f.queueJoins) + "</td>" +
+                            "<td class='number'>" + privacy(f.matches) + "</td>" +
+                            "<td class='number'>" + privacy(f.conversations) + "</td></tr>"
+                    )
+                    .join("");
+                forensics.querySelector("tbody").innerHTML = forRows ||
+                    "<tr><td colspan='7' class='empty-state'>No data yet</td></tr>";
+
+                const utm = document.getElementById("table-utm");
+                const utmRows = (ts.utm || [])
+                    .map(
+                        (u) =>
+                            "<tr><td>" + escapeHtml(u.source) + "</td>" +
+                            "<td>" + escapeHtml(u.medium) + "</td>" +
+                            "<td>" + escapeHtml(u.campaign) + "</td>" +
+                            "<td class='number'>" + privacy(u.sessions) + "</td>" +
+                            "<td class='number'>" + privacy(u.matches) + "</td>" +
+                            "<td class='number'>" + privacy(u.conversations) + "</td></tr>"
+                    )
+                    .join("");
+                utm.querySelector("tbody").innerHTML = utmRows ||
+                    "<tr><td colspan='6' class='empty-state'>No data yet</td></tr>";
+            }
+
+            function renderDensity(nd) {
+                if (!nd) return;
+
+                const cur = nd.current || {};
+                const avg = nd.average || {};
+                const peak = nd.peak || {};
+
+                renderCards("density-cards", [
+                    ["Current Connected", cur.connected || 0],
+                    ["Current Waiting", cur.waiting || 0],
+                    ["Current Eligible", cur.eligible || 0],
+                    ["Peak Connected", peak.connected || 0],
+                    ["Peak Queue", peak.waiting || 0],
+                    ["Peak Eligible", peak.eligible || 0],
+                    ["Avg Connected", avg.connected || 0],
+                    ["Avg Eligible", avg.eligible || 0]
+                ]);
+
+                const table = document.getElementById("table-market");
+                const tbody = table.querySelector("tbody");
+                const rows = (nd.marketDensity || [])
+                    .map(
+                        (m) =>
+                            "<tr><td>" + escapeHtml(m.country) + "</td>" +
+                            "<td class='number'>" + privacy(m.peakConcurrentUsers) + "</td>" +
+                            "<td class='number'>" + privacy(m.averageConcurrentUsers) + "</td>" +
+                            "<td class='number'>" + privacy(m.peakQueueSize) + "</td>" +
+                            "<td class='number'>" + privacy(m.matchablePopulation) + "</td>" +
+                            "<td class='number'>" + formatMs(m.avgWaitMs) + "</td>" +
+                            "<td class='number'>" + formatMs(m.p50WaitMs) + "</td>" +
+                            "<td class='number'>" + formatMs(m.p95WaitMs) + "</td>" +
+                            "<td class='number'>" + pct(m.matchSuccessRate) + "</td></tr>"
+                    )
+                    .join("");
+                tbody.innerHTML = rows ||
+                    "<tr><td colspan='9' class='empty-state'>No data yet</td></tr>";
+            }
+
+            function renderExperiments(experiments) {
+                if (!experiments) return;
+                const el = document.getElementById("experiments");
+
+                if (experiments.length === 0) {
+                    el.innerHTML =
+                        "<div class='empty-state'>No experiments configured.</div>";
+                    return;
+                }
+
+                el.innerHTML = experiments
+                    .map((exp) => {
+                        let variants = "";
+                        if (exp.variants && exp.variants.length) {
+                            variants =
+                                "<table><thead><tr>" +
+                                "<th>Variant</th><th class='number'>Sessions</th>" +
+                                "<th class='number'>Queue Joins</th>" +
+                                "<th class='number'>Matches</th>" +
+                                "<th class='number'>Match Success</th>" +
+                                "</tr></thead><tbody>" +
+                                exp.variants
+                                    .map(
+                                        (v) =>
+                                            "<tr><td>" + escapeHtml(v.variant) + "</td>" +
+                                            "<td class='number'>" + privacy(v.sessions) + "</td>" +
+                                            "<td class='number'>" + privacy(v.queueJoins) + "</td>" +
+                                            "<td class='number'>" + privacy(v.matches) + "</td>" +
+                                            "<td class='number'>" + pct(v.matchSuccessRate) + "</td></tr>"
+                                    )
+                                    .join("") +
+                                "</tbody></table>";
+                        } else {
+                            variants =
+                                "<div class='empty-state'>No traffic yet.</div>";
+                        }
+
+                        return (
+                            "<div class='card' style='margin-bottom:14px'>" +
+                            "<div class='label'>" + escapeHtml(exp.experimentId) + "</div>" +
+                            "<div class='value' style='font-size:15px'>" +
+                            escapeHtml(exp.name) + "</div>" +
+                            "<div style='font-size:11px;color:var(--muted);margin-top:4px'>" +
+                            escapeHtml(exp.hypothesis) + "</div>" +
+                            "<div style='font-size:11px;margin-top:6px'>Status: <b>" +
+                            escapeHtml(exp.status) + "</b> · Primary: " +
+                            escapeHtml(exp.primaryMetric) + "</div>" +
+                            "<div style='margin-top:10px'>" + variants + "</div>" +
+                            "</div>"
+                        );
+                    })
+                    .join("");
+            }
+
+            function renderSystem(data) {
+                fillKeyValue("table-global", [
+                    ["Total Connections", privacy(data.global.totalConnections)],
+                    ["Total Matches", privacy(data.global.totalMatches)],
+                    ["Total Conversations", privacy(data.global.totalConversations)],
+                    ["Active Users", privacy(data.global.activeUsers)],
+                    ["Active Matches", privacy(data.global.activeMatches)],
+                    ["Waiting Users", privacy(data.global.waitingUsers)],
+                    ["Average Match Time", formatMs(data.global.avgMatchWaitMs)],
+                    ["Average Conversation Duration", formatMs(data.global.avgConversationDurationMs)]
+                ]);
+
+                fillDistribution("table-countries", data.countries, "No data yet");
+                fillDistribution("table-languages", data.languages, "No data yet");
 
                 fillKeyValue("table-matching", [
-                    [
-                        "Successful Matches",
-                        privacy(
-                            data.matching.successfulMatches
-                        )
-                    ],
-                    [
-                        "Average Wait Time",
-                        formatMs(
-                            data.matching.avgWaitMs
-                        )
-                    ],
-                    [
-                        "p50 Wait Time",
-                        formatMs(
-                            data.matching.p50WaitMs
-                        )
-                    ],
-                    [
-                        "p95 Wait Time",
-                        formatMs(
-                            data.matching.p95WaitMs
-                        )
-                    ],
-                    [
-                        "p99 Wait Time",
-                        formatMs(
-                            data.matching.p99WaitMs
-                        )
-                    ],
-                    [
-                        "Longest Wait Time",
-                        formatMs(
-                            data.matching.longestWaitMs
-                        )
-                    ],
-                    [
-                        "Match Success Rate",
-                        data.matching.matchSuccessRate
-                    ],
-                    [
-                        "Active Matches",
-                        privacy(
-                            data.matching.activeMatches
-                        )
-                    ]
+                    ["Successful Matches", privacy(data.matching.successfulMatches)],
+                    ["Average Wait Time", formatMs(data.matching.avgWaitMs)],
+                    ["p50 Wait Time", formatMs(data.matching.p50WaitMs)],
+                    ["p95 Wait Time", formatMs(data.matching.p95WaitMs)],
+                    ["p99 Wait Time", formatMs(data.matching.p99WaitMs)],
+                    ["Longest Wait Time", formatMs(data.matching.longestWaitMs)],
+                    ["Match Success Rate", data.matching.matchSuccessRate],
+                    ["Active Matches", privacy(data.matching.activeMatches)]
                 ]);
 
                 fillKeyValue("table-conversation", [
-                    [
-                        "Conversations Started",
-                        privacy(
-                            data.conversation.started
-                        )
-                    ],
-                    [
-                        "Conversations Completed",
-                        privacy(
-                            data.conversation.completed
-                        )
-                    ],
-                    [
-                        "Average Duration",
-                        formatMs(
-                            data.conversation
-                                .avgDurationMs
-                        )
-                    ],
-                    [
-                        "Median Duration",
-                        formatMs(
-                            data.conversation
-                                .medianDurationMs
-                        )
-                    ],
-                    [
-                        "Average Messages per Conversation",
-                        data.conversation
-                            .avgMessagesPerConversation
-                    ]
+                    ["Conversations Started", privacy(data.conversation.started)],
+                    ["Conversations Completed", privacy(data.conversation.completed)],
+                    ["Average Duration", formatMs(data.conversation.avgDurationMs)],
+                    ["Median Duration", formatMs(data.conversation.medianDurationMs)],
+                    ["Average Messages per Conversation", data.conversation.avgMessagesPerConversation]
                 ]);
 
                 fillKeyValue("table-system", [
-                    [
-                        "Connection Attempts",
-                        privacy(data.system.connectionAttempts)
-                    ],
-                    [
-                        "Connection Accepted",
-                        privacy(data.system.connectionAccepted)
-                    ],
-                    [
-                        "Connection Rejected",
-                        privacy(data.system.connectionRejected)
-                    ],
-                    [
-                        "Connection Success Rate",
-                        data.system.connectionSuccessRate
-                    ],
-                    [
-                        "Connection Failure Rate",
-                        data.system.connectionFailureRate
-                    ],
-                    [
-                        "Disconnect Count",
-                        privacy(data.system.disconnectCount)
-                    ],
-                    [
-                        "Disconnect Rate (churn)",
-                        data.system.disconnectRate
-                    ],
-                    [
-                        "Average WS Latency",
-                        data.system.avgWSLatencyMs > 0
-                            ? data.system.avgWSLatencyMs + "ms"
-                            : "—"
-                    ],
-                    [
-                        "p50 WS Latency",
-                        data.system.p50WSLatencyMs > 0
-                            ? data.system.p50WSLatencyMs + "ms"
-                            : "—"
-                    ],
-                    [
-                        "p95 WS Latency",
-                        data.system.p95WSLatencyMs > 0
-                            ? data.system.p95WSLatencyMs + "ms"
-                            : "—"
-                    ],
-                    [
-                        "Average Socket Lifetime",
-                        formatMs(
-                            data.system.avgSocketLifetimeMs
-                        )
-                    ],
-                    [
-                        "p50 Socket Lifetime",
-                        formatMs(
-                            data.system.p50SocketLifetimeMs
-                        )
-                    ],
-                    [
-                        "API Errors (rate limits)",
-                        privacy(data.system.apiErrors)
-                    ]
+                    ["Connection Attempts", privacy(data.system.connectionAttempts)],
+                    ["Connection Accepted", privacy(data.system.connectionAccepted)],
+                    ["Connection Rejected", privacy(data.system.connectionRejected)],
+                    ["Connection Success Rate", data.system.connectionSuccessRate],
+                    ["Connection Failure Rate", data.system.connectionFailureRate],
+                    ["Disconnect Count", privacy(data.system.disconnectCount)],
+                    ["Disconnect Rate (churn)", data.system.disconnectRate],
+                    ["Average WS Latency", data.system.avgWSLatencyMs > 0 ? data.system.avgWSLatencyMs + "ms" : "—"],
+                    ["p50 WS Latency", data.system.p50WSLatencyMs > 0 ? data.system.p50WSLatencyMs + "ms" : "—"],
+                    ["p95 WS Latency", data.system.p95WSLatencyMs > 0 ? data.system.p95WSLatencyMs + "ms" : "—"],
+                    ["Average Socket Lifetime", formatMs(data.system.avgSocketLifetimeMs)],
+                    ["p50 Socket Lifetime", formatMs(data.system.p50SocketLifetimeMs)],
+                    ["API Errors (rate limits)", privacy(data.system.apiErrors)]
                 ]);
 
-                fillDisconnectReasons(
-                    data.disconnectReasons
-                );
+                const failures = window.__growthData && window.__growthData.matchFailures;
+                const failTable = document.getElementById("table-match-failures");
+                if (failures && failures.length) {
+                    failTable.querySelector("tbody").innerHTML = failures
+                        .map(
+                            (f) =>
+                                "<tr><td>" + escapeHtml(f.reason) +
+                                "</td><td class='number'>" + f.count + "</td></tr>"
+                        )
+                        .join("");
+                } else {
+                    failTable.querySelector("tbody").innerHTML =
+                        "<tr><td colspan='2' class='empty-state'>No match failures.</td></tr>";
+                }
+
+                fillDisconnectReasons(data.disconnectReasons);
             }
 
-            /**
-             * Fetch stats from API.
-             */
+            function render(growthData, systemData) {
+                window.__growthData = growthData;
+                renderGrowth(growthData.growth);
+                renderFunnel(growthData.funnel);
+                renderCohorts(growthData.cohorts);
+                renderTraffic(growthData.trafficSources);
+                renderDensity(growthData.networkDensity);
+                renderExperiments(growthData.experiments);
+                renderSystem(systemData);
+            }
+
             async function fetchStats() {
                 try {
-                    const response =
-                        await fetch("/api/stats");
+                    const [growthRes, systemRes] = await Promise.all([
+                        fetch("/api/growth"),
+                        fetch("/api/stats")
+                    ]);
 
-                    if (!response.ok) {
-                        throw new Error(
-                            "HTTP " + response.status
-                        );
+                    if (!growthRes.ok || !systemRes.ok) {
+                        throw new Error("HTTP error");
                     }
 
-                    const data =
-                        await response.json();
+                    const growthData = await growthRes.json();
+                    const systemData = await systemRes.json();
 
                     if (!hasData) {
-                        loading.style.display =
-                            "none";
-                        content.style.display =
-                            "block";
+                        loading.style.display = "none";
+                        content.style.display = "block";
                         hasData = true;
+                        buildNav();
+                        activatePanel(activePanel);
                     }
 
-                    errorBanner.classList.remove(
-                        "visible"
-                    );
-
-                    render(data);
+                    errorBanner.classList.remove("visible");
+                    render(growthData, systemData);
                 } catch (err) {
-                    console.error(
-                        "Stats fetch error:",
-                        err
-                    );
-
+                    console.error("Stats fetch error:", err);
                     if (!hasData) {
-                        loading.style.display =
-                            "none";
-                        errorBanner.classList.add(
-                            "visible"
-                        );
+                        loading.style.display = "none";
+                        errorBanner.classList.add("visible");
                     }
                 }
             }
 
-            // Initial fetch
             fetchStats();
-
-            // Poll every 10 seconds
             setInterval(fetchStats, 10_000);
         })();
     </script>
