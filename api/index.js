@@ -10,8 +10,24 @@ const feat = require("../lib/features");
 const log = require("./logger");
 
 const app = express();
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
 
 const httpServer = http.createServer(app);
+
+const allowedOrigins = new Set(
+    (process.env.SHTM_ALLOWED_ORIGINS || "http://localhost:3000")
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+);
+const isProduction = process.env.NODE_ENV === "production";
+const corsOrigin = (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+        return callback(null, true);
+    }
+    return callback(new Error("Origin not allowed"));
+};
 
 /*
 |--------------------------------------------------------------------------
@@ -27,7 +43,9 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
     cors: {
-        origin: "*"
+        origin: corsOrigin,
+        methods: ["GET", "POST"],
+        credentials: false
     },
     transports: ["websocket"],
     allowEIO3: true,
@@ -71,6 +89,9 @@ const rooms = new Map();
 */
 
 app.use((req, res, next) => {
+    const requestId = String(req.headers["x-request-id"] || crypto.randomUUID()).slice(0, 80);
+    req.requestId = requestId;
+    res.setHeader("X-Request-ID", requestId);
     res.setHeader(
         "Content-Security-Policy",
         [
@@ -108,6 +129,15 @@ app.use((req, res, next) => {
 
 const publicPath = path.join(__dirname, "..", "public");
 
+app.get("/healthz", (req, res) => {
+    res.status(200).json({ status: "ok" });
+});
+
+app.get("/readyz", (req, res) => {
+    res.status(200).json({ status: "ready" });
+});
+
+app.use(express.json({ limit: "64kb", strict: true }));
 app.use(express.static(publicPath));
 
 app.get("/speed-insights.mjs", (req, res) => {
@@ -1422,13 +1452,32 @@ broadcastPresence();
 |--------------------------------------------------------------------------
 */
 
+let shuttingDown = false;
+
+async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log.info("server_shutdown_started", { signal });
+    if (presenceTimer) clearInterval(presenceTimer);
+    growth.stopSnapshots();
+    for (const socket of io.sockets.sockets.values()) {
+        socket.disconnect(true);
+    }
+    await new Promise((resolve) => httpServer.close(resolve));
+    log.info("server_shutdown_complete", { signal });
+}
+
 if (require.main === module) {
     const PORT = process.env.PORT || 3000;
     httpServer.listen(PORT, () => {
         log.info("server_started", {
-            port: Number(PORT)
+            port: Number(PORT),
+            environment: process.env.NODE_ENV || "development",
+            allowedOrigins: allowedOrigins.size
         });
     });
+    process.once("SIGTERM", () => shutdown("SIGTERM"));
+    process.once("SIGINT", () => shutdown("SIGINT"));
 }
 
 module.exports = httpServer;
