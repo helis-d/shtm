@@ -26,6 +26,7 @@
 */
 
 const crypto = require("crypto");
+const log = require("./logger");
 
 /* ---------------------------------------------------------------------------
    CONFIGURATION
@@ -502,15 +503,14 @@ function validateImagePayload(imageDataUrl) {
         };
     }
 
-    // Optional: Check declared vs detected mismatch (warning only, allow)
+    // The declared type is untrusted; reject mismatches rather than forwarding
+    // content that browsers may interpret differently.
     if (detectedMime !== declaredMime) {
-        console.log(
-            "SECURITY: MIME mismatch",
-            {
-                declared: declaredMime,
-                detected: detectedMime
-            }
-        );
+        log.security("image_mime_mismatch", {
+            declaredMime,
+            detectedMime
+        });
+        return { valid: false, message: "Görsel içeriği doğrulanamadı." };
     }
 
     return { valid: true };
@@ -583,15 +583,10 @@ function getMetrics() {
     };
 }
 
-/* Periodic metrics dump — observable in Vercel logs */
+/* Periodic metrics dump — observable in structured Vercel logs */
 
 setInterval(() => {
-    const m = getMetrics();
-
-    console.log(
-        "METRICS",
-        JSON.stringify(m)
-    );
+    log.info("security_metrics", getMetrics());
 }, 60_000).unref();
 
 /* ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@
     "start": "node api/index.js",
     "dev": "vercel dev",
     "test": "node --test --test-reporter=spec test/*.test.js",
+    "check": "node --check api/index.js && node --check api/security.js && node --check api/logger.js && node --check lib/growth.js && node --check lib/features.js",
     "context:build": "node scripts/build-context.js",
     "context:check": "node scripts/check-context.js"
   },
